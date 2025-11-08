@@ -1,0 +1,96 @@
+---
+title: Working with Color Instances
+description: Discover how to manipulate and convert colors using in(), with(), and the to*() family of methods to gain full control over color transformations.
+---
+
+Once you have a `Color` instance, Saturon provides powerful methods to manipulate and convert it: `in()`, `to()`, `with()`, and `within()`. These methods allow you to switch color spaces, output colors as strings, update channel values, and ensure colors fit within specific gamuts. Below, we explore each method with examples.
+
+## `Color.prototype.in()`
+
+The `in()` method converts a `Color` instance to a specified color model (e.g., `hsl`, `oklab`, `lch`), returning a new instance in that model. It's useful for manipulating colors in a specific space where certain channels (e.g., hue in `hsl`) are more intuitive. If the instance is already in the requested model, `in()` safely returns the same instance without redundant conversion, ensuring efficiency.
+
+**Example**:
+
+```js
+import { Color } from "saturon";
+
+const rgbColor = Color.from("rgb(255 87 51)");
+const oklabColor = rgbColor.in("oklab");
+console.log(oklabColor.toArray()); // [0.68036, 0.17474, 0.1165, 1]
+
+// No-op if already in the model
+const hslColor = Color.from("hsl(50 100% 30%)").in("hsl");
+console.log(hslColor.toString()); // hsl(50 100 30)
+
+// Adjusting in a specific color space
+const adjusted = rgbColor.in("hsl").with({ l: (l) => l + 20 });
+console.log(adjusted.to("rgb")); //	rgb(255 172 153)
+
+// Mixing in a specific color space
+const mixed = rgbColor.in("oklch").mix(hslColor);
+console.log(mixed.to("hsl")); // hsl(38 155 32)
+```
+
+Use `in()` when you need to work in a specific color space before updating channels (e.g., adjusting lightness in `hsl` or chroma in `oklch`, or mixing in `lab`). For details, refer to [Color Class: in()](../api#in).
+
+## `Color.prototype.to()` [to]
+
+The `to()` method converts the `Color` instance to a CSS color string in the specified format (e.g., `rgb`, `hsl`, `hex-color`, `named-color`). It's ideal for outputting colors in a format suitable for CSS, logging, or display. The `type` parameter corresponds to any supported output `<color>` syntax or model.
+
+**Example**:
+
+```js
+import { Color } from "saturon";
+
+const color = Color.from("oklch(0.5 0.1 240)");
+console.log(color.to("rgb")); // rgb(31 106 150)
+console.log(color.to("hwb")); // hwb(202 12 41)
+console.log(color.to("hex-color")); // #1f6a96
+```
+
+## `Color.prototype.with()` [with]
+
+The `with()` method returns a new `Color` instance with updated channel values, keeping the current model. It supports flexible input formats, such as an object with channel names, an array of numbers, or an updater function for dynamic adjustments. The method is model-dependent, so the provided channels (e.g., `h` for hue) must exist in the current model, or an error is thrown. To avoid errors, use `in()` to switch to the desired model first.
+
+**Example**:
+
+```js
+import { Color } from "saturon";
+
+// Update hue with a function
+const color = Color.from("hsl(50 100% 30%)");
+const rotated = color.with({ h: (h) => h + 30 });
+console.log(rotated.toString()); // hsl(80 100 30)
+
+// Update multiple channels with an object
+const adjusted = color.with({ s: 50, l: 40 });
+console.log(adjusted.toString()); // hsl(50 50 40)
+
+// Update with an array (order depends on model)
+const direct = color.with([, 50, 50]);
+console.log(direct.toString()); // hsl(50 50 50)
+
+// Switch model first if needed
+const rgbColor = Color.from("rgb(255 87 51)");
+const updated = rgbColor.in("hsl").with({ h: (h) => h + 30 });
+console.log(updated.to("rgb")); // rgb(255 190 51)
+```
+
+## `Color.prototype.within()` [within]
+
+The `within()` method returns a new `Color` instance with its values constrained to the specified gamut (e.g., `srgb`, `display-p3`, `rec2020`), using a fit method like `clip` (default), `chroma-reduction`, or `css-gamut-map`. This ensures colors are displayable within the target gamut, which is critical for wide-gamut spaces like Display-P3 on sRGB displays.
+
+**Example**:
+
+```js
+import { Color } from "saturon";
+
+// Constrain a Display-P3 color to sRGB
+const wideColor = Color.from("color(display-p3 1 0 0)");
+const srgbColor = wideColor.within("srgb");
+console.log(srgbColor.to("rgb")); // rgb(255 0 0) (clipped to sRGB gamut)
+
+// Use a different fit method
+const mappedColor = wideColor.within("srgb", "css-gamut-map");
+console.log(mappedColor.toString()); // rgb(255 0 0) (adjusted for sRGB)
+```

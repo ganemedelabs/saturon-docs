@@ -1,0 +1,168 @@
+---
+title: Accessibility & Color Difference Checks
+description: Ensure your colors are readable and accessible using contrast() and deltaE*() methods to check contrast and perceptible color differences.
+---
+
+Saturon provides two complementary tools for accessibility and color analysis:
+
+| Tool         | Purpose                          | Best for                                            |
+| ------------ | -------------------------------- | --------------------------------------------------- |
+| `contrast()` | WCAG 2.1 contrast ratio (1-21)   | Text on background (AA/AAA compliance)              |
+| `deltaE*()`  | Perceptual color difference (ΔE) | Design consistency, brand colors, subtle variations |
+
+## WCAG Contrast Ratio - `Color.prototype.contrast()` [contrast]
+
+The `contrast()` method computes the WCAG 2.1 contrast ratio between two colors using relative luminance in `xyz-d65`. A ratio of ≥4.5 is required for normal text (AA), and ≥7 for AAA.
+
+### When to Use
+
+- Validate text over background
+- Check button states, links, icons
+- Automate accessibility audits
+
+### Syntax
+
+```ts
+contrast(other: Color | string): number
+```
+
+### Example: Text Accessibility Check
+
+```js
+import { Color } from "saturon";
+
+const bg = Color.from("#1a1a1a"); // dark background
+const text = Color.from("#e0e0e0"); // light gray text
+const primary = Color.from("#0088cc"); // blue accent
+
+console.log(text.contrast(bg)); // ~13.2 → PASS (AAA)
+console.log(primary.contrast(bg)); // ~4.5  → PASS (AA)
+console.log(bg.contrast(text)); // same as above (symmetric)
+```
+
+### Threshold Helper
+
+```ts
+function isAccessible(textColor: Color, bgColor: Color, level: "AA" | "AAA" = "AA") {
+    const ratio = textColor.contrast(bgColor);
+    const threshold = level === "AAA" ? 7 : 4.5;
+    return { ratio, pass: ratio >= threshold };
+}
+
+console.log(isAccessible(text, bg, "AAA")); // { ratio: 13.2, pass: true }
+```
+
+## Perceptual Color Difference - `Color.prototype.deltaE*()` Methods [deltaE]
+
+Use ΔE to measure how different two colors appear to the human eye. Saturon supports four formulas:
+
+| Method         | Accuracy     | Speed   | Use Case                           |
+| -------------- | ------------ | ------- | ---------------------------------- |
+| `deltaEOK()`   | High (OKLAB) | Fast    | General design, UI, branding       |
+| `deltaE76()`   | Low          | Fastest | Legacy, simple checks              |
+| `deltaE94()`   | Medium       | Fast    | Improved over 76                   |
+| `deltaE2000()` | Highest      | Slower  | Print, textiles, critical matching |
+
+### Interpretation of ΔE Values
+
+| ΔE Range | Perception             |
+| -------- | ---------------------- |
+| ≤ 1.0    | Not perceptible        |
+| 1-2      | Perceptible by experts |
+| 2-10     | Noticeable difference  |
+| ≥ 10     | Clearly different      |
+
+### `deltaEOK()` Recommended for Most Cases
+
+Fast, perceptually uniform, and scaled so ΔE ≈ 2 = Just Noticeable Difference (JND).
+
+```js
+const brand = Color.from("#ff5733");
+const variant = Color.from("#ff6b47");
+
+console.log(brand.deltaEOK(variant)); // e.g., 3.4 → barely noticeable
+```
+
+### `deltaE2000()` - Gold Standard for Precision
+
+Use when maximum accuracy is required (e.g., color-critical workflows).
+
+```js
+console.log(brand.deltaE2000(variant)); // e.g., 3.5 → slightly more accurate
+```
+
+## Practical Use Cases
+
+### 1. Ensure Brand Color Variants Are Subtle
+
+```js
+function isBrandSafe(base: Color, variant: Color, maxDE = 3) {
+    return base.deltaEOK(variant) <= maxDE;
+}
+
+const primary = Color.from("#0066cc");
+const hover = Color.from("#0070cc");
+
+console.log(isBrandSafe(primary, hover)); // true (ΔE = 2.7)
+```
+
+### 2. Detect Accidental Color Duplication
+
+```js
+const palette = ["#ff5733", "#ff6b47", "#ff8040", "#33b5e5", "#00c851", "#ffbb33"].map((c) => Color.from(c));
+
+for (let i = 0; i < palette.length; i++) {
+    for (let j = i + 1; j < palette.length; j++) {
+        const de = palette[i].deltaEOK(palette[j]);
+        if (de < 5) {
+            console.warn(`Colors ${i} and ${j} are too similar (ΔE = ${de.toFixed(1)})`);
+        }
+    }
+}
+```
+
+### 3. Auto-Adjust Text Color for Readability
+
+```js
+function getAccessibleText(bgColor: Color) {
+    const light = Color.from("#ffffff");
+    const dark = Color.from("#000000");
+
+    const lightContrast = light.contrast(bgColor);
+    const darkContrast = dark.contrast(bgColor);
+
+    return lightContrast > darkContrast ? light : dark;
+}
+
+const bg = Color.from("#f39c12");
+const text = getAccessibleText(bg);
+console.log(text.to("hex-color")); // #000000 (dark text on orange)
+```
+
+## Choosing the Right Tool
+
+| Goal                                | Use                            |
+| ----------------------------------- | ------------------------------ |
+| Text is readable?                   | `contrast()` + WCAG thresholds |
+| Are two swatches visually distinct? | `deltaEOK()` (ΔE > 5)          |
+| Match print proof to screen?        | `deltaE2000()`                 |
+| Quick brand check?                  | `deltaEOK()`                   |
+
+## Summary
+
+| Method         | Output      | Perceptual? | Speed  |
+| -------------- | ----------- | ----------- | ------ |
+| `contrast()`   | 1-21        | No          | Fast   |
+| `deltaEOK()`   | ΔE (~0-100) | Yes         | Fast   |
+| `deltaE2000()` | ΔE (~0-100) | Yes         | Slower |
+
+<Callout title="Pro Tip">
+Combine them to get the best of both worlds:
+
+```js
+if (text.contrast(bg) < 4.5) {
+    text = text.deltaEOK(white) < text.deltaEOK(black) ? white : black;
+}
+```
+
+</Callout>

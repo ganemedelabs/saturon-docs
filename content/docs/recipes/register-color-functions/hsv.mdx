@@ -1,0 +1,32 @@
+---
+title: HSV
+description: A recipe to register the HSV color function in Saturon.
+---
+
+```ts
+import { registerColorFunction } from "saturon/utils";
+
+/**
+ * @see {@link https://en.wikipedia.org/wiki/HSL_and_HSV|HSL and HSV}
+ */
+registerColorFunction("hsv", {
+    components: {
+        h: { index: 0, value: "angle", precision: 0 },
+        s: { index: 1, value: "percentage", precision: 0 },
+        v: { index: 2, value: "percentage", precision: 0 },
+    },
+    bridge: "hsl",
+    toBridge: (hsv: number[]) => {
+        const [h, s, v] = hsv.map((c, i) => (i === 0 ? c : c / 100));
+        const l = v * (1 - s / 2);
+        const s_hsl = l === 0 || l === 1 ? 0 : (v - l) / Math.min(l, 1 - l);
+        return [h, s_hsl * 100, l * 100];
+    },
+    fromBridge: (hsl: number[]) => {
+        const [h, s, l] = hsl.map((c, i) => (i === 0 ? c : c / 100));
+        const v = l + s * Math.min(l, 1 - l);
+        const s_hsv = v === 0 ? 0 : 2 * (1 - l / v);
+        return [h, s_hsv * 100, v * 100];
+    },
+});
+```

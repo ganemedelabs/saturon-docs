@@ -1,0 +1,35 @@
+---
+title: Rec. 2100 HLG
+description: A recipe to register the Rec. 2100 HLG color space in Saturon.
+---
+
+```ts
+import { registerColorSpace } from "saturon/utils";
+import { MATRICES } from "saturon/math";
+
+/**
+ * @see {@link https://www.w3.org/TR/css-color-hdr-1/|CSS Color HDR Module Level 1}
+ */
+registerColorSpace("rec2100-hlg", {
+    components: ["r", "g", "b"],
+    bridge: "xyz-d65",
+    toLinear: (c: number) => {
+        const a = 0.17883277;
+        const b = 1 - 4 * a;
+        const c1 = 0.5 - a * Math.log(4 * a);
+        if (c <= 0.5) return c ** 2 / 3;
+        return (Math.exp((c - c1) / a) + b) / 12;
+    },
+    fromLinear: (E: number) => {
+        const a = 0.17883277;
+        const b = 1 - 4 * a;
+        const c1 = 0.5 - a * Math.log(4 * a);
+        const sign = E < 0 ? -1 : 1;
+        const absE = Math.abs(E);
+        if (absE <= 1 / 12) return sign * Math.sqrt(3 * absE);
+        return sign * (a * Math.log(12 * absE - b) + c1);
+    },
+    toBridgeMatrix: MATRICES.REC2020_to_XYZD65,
+    fromBridgeMatrix: MATRICES.XYZD65_to_REC2020,
+});
+```

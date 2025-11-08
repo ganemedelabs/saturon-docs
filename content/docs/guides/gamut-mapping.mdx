@@ -1,0 +1,178 @@
+---
+title: Gamut Mapping & Out-of-Gamut Handling
+description: Learn to detect, constrain, and fit colors using within(), inGamut(), and fit options to handle colors that exceed display gamuts safely.
+---
+
+Colors defined in wide-gamut spaces like Display P3 or Rec. 2020 may not be displayable on standard sRGB screens. Saturon gives you full control over:
+
+- Detection - `inGamut()`
+- Correction - `within()`
+- Output Safety - `fit` in `to()`, `toString()`, `toArray()`, and `toObject()`
+
+## Why Gamut Mapping Matters
+
+| Device           | Gamut      | Example                     |
+| ---------------- | ---------- | --------------------------- |
+| Standard monitor | sRGB       | Most web content            |
+| High-end laptop  | Display P3 | Apple Retina, modern phones |
+| TV / Cinema      | Rec.2020   | HDR content                 |
+
+For example, `color(display-p3 1 0 0)` is pure red in P3, but out of sRGB range. It's showed as clipped or desaturated on normal screens.
+
+## Detect Out-of-Gamut Colors - `Color.prototype.inGamut()`
+
+Use `inGamut()` to check if a color is safely displayable in a target gamut.
+
+### Syntax
+
+```ts
+inGamut(gamut: ColorSpace | string, epsilon = 1e-5): boolean
+```
+
+### Example
+
+```js
+import { Color } from "saturon";
+
+const p3Red = Color.from("color(display-p3 1 0 0)");
+const sRGBRed = Color.from("rgb(255 0 0)");
+
+console.log(p3Red.inGamut("srgb")); // false
+console.log(sRGBRed.inGamut("srgb")); // true
+console.log(p3Red.inGamut("display-p3")); // true
+```
+
+### When to Use
+
+- Conditional rendering (e.g., fallback colors)
+- Design system validation
+- Automated testing (`expect(color.inGamut("srgb")).toBe(true)`)
+
+## Fit Colors into a Gamut - `Color.prototype.within()`
+
+Use `within()` to return a new `Color` with values constrained to a target gamut, using a chosen fit method.
+
+### Syntax
+
+```ts
+within(gamut: ColorSpace, method: FitMethod = config.defaults.fit): Color<M>
+```
+
+| Method               | Behavior                                           |
+| -------------------- | -------------------------------------------------- |
+| `"clip"`             | Clamp to nearest edge (fast, may shift hue)        |
+| `"chroma-reduction"` | Reduce chroma while preserving hue/lightness       |
+| `"css-gamut-map"`    | CSS Color Module 4 algorithm (perceptually smooth) |
+
+### Example
+
+```js
+const wide = Color.from("color(display-p3 1 0.8 0)");
+
+// Clip (default)
+console.log(wide.within("srgb").to("rgb")); // → rgb(255 201 0)
+
+// Perceptually better
+console.log(wide.within("srgb", "css-gamut-map").to("rgb")); // → rgb(255 205 46) — smoother transition
+```
+
+### Visual Comparison
+
+```js
+// Generate a gradient from P3 → sRGB
+const steps = 5;
+for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const color = wide.mix("white", { amount: t });
+    console.log(`${t.toFixed(2)} →`, color.within("srgb", "css-gamut-map").to("hex-color"));
+}
+```
+
+## Safe Output with `fit` Option
+
+Use the `fit` option in `to()`, `toString()`, `toArray()`, or `toObject()` to automatically map out-of-gamut colors during formatting.
+
+### Applies to:
+
+- `to(type, { fit })`
+- `toString({ fit })`
+- `toArray({ fit })`
+- `toObject({ fit })`
+
+### Example
+
+```js
+const p3Color = Color.from("color(display-p3 1 0 0)");
+
+// Unsafe: may produce invalid CSS
+console.log(p3Color.to("rgb", { fit: "none" })); // → rgb(279 -58 -38)
+
+// Safe: auto-fit
+console.log(p3Color.to("rgb", { fit: "clip" })); // → rgb(255 0 0)
+console.log(p3Color.to("rgb", { fit: "css-gamut-map" })); // → rgb(255 52 40) — perceptually adjusted
+```
+
+<Callout title="Note">
+    Using the `fit` option in output methods is less flexible than using the `within()` method, because `fit` only
+    applies to the target gamut of the output format. For instance, outputting `"hsl"` always targets sRGB, so `fit` can
+    only control how it maps into sRGB, not which gamut it targets.
+</Callout>
+
+### Set Global Default
+
+```js
+import { configure } from "saturon/utils";
+
+configure({ defaults: { fit: "css-gamut-map" } });
+
+// Now all outputs auto-fit using "css-gamut-map" instead if "clip" method
+console.log(p3Color.to("rgb")); // → safe value
+```
+
+## Practical Workflows
+
+### 1. Design Token Pipeline
+
+```js
+function exportToken(color: Color, format = "hex-color") {
+    if (!color.inGamut("srgb")) {
+        color = color.within("srgb", "css-gamut-map");
+    }
+    return color.to(format);
+}
+
+// Safe for web
+console.log(exportToken(Color.from("color(display-p3 0 1 0)"))); // → #00ff00
+```
+
+### 2. Dynamic Theme with Fallback
+
+```js
+const prefersWideGamut = window.matchMedia("(color-gamut: p3)").matches;
+const base = Color.from("color(display-p3 0.2 0.8 1)");
+
+const displayColor = prefersWideGamut ? base : base.within("srgb", "css-gamut-map");
+
+document.body.style.color = displayColor.to("rgb");
+```
+
+### 3. Unit Testing Gamut Safety
+
+```js
+test("all brand colors are sRGB-safe", () => {
+    const brandColors = ["#ff5733", "#33b5e5", "color(display-p3 1 0 0)"].map((c) => Color.from(c));
+
+    brandColors.forEach((color) => {
+        const safe = color.within("srgb");
+        expect(safe.inGamut("srgb")).toBe(true);
+    });
+});
+```
+
+## Summary
+
+| Goal             | Method                                      |
+| ---------------- | ------------------------------------------- |
+| Check if safe    | `color.inGamut("srgb")`                     |
+| Fix out-of-gamut | `color.within("srgb", "css-gamut-map")`     |
+| Safe CSS output  | `color.to("rgb", { fit: "css-gamut-map" })` |

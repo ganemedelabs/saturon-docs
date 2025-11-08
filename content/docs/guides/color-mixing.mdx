@@ -1,0 +1,227 @@
+---
+title: Color Mixing & Interpolation
+description: Master blending colors with the mix() method. Explore hue interpolation methods, easing functions, gamma correction, and alpha handling for precise results.
+---
+
+## Overview
+
+Saturon's `mix()` method returns a new immutable `Color` instance that interpolates between two colors.
+It supports:
+
+- Hue interpolation (`shorter`, `longer`, `increasing`, `decreasing`)
+- Easing functions (`linear`, `ease-in`, custom)
+- Gamma correction for perceptually accurate blending
+- CSS `color-mix()` accuracy
+
+All while staying immutable - the original colors are never changed.
+
+## Method Signature
+
+```ts
+mix(
+  other: Color<ColorModel> | string,
+  options?: MixOptions
+): Color<M>
+```
+
+### Parameters
+
+| Name      | Type                  | Default | Description                        |
+| --------- | --------------------- | ------- | ---------------------------------- |
+| `other`   | `Color` or CSS string | —       | The color to blend with            |
+| `options` | `MixOptions`          | `{}`    | Options to control mixing behavior |
+
+### `MixOptions` Type
+
+```ts
+type MixOptions = {
+    /** Amount of the second color to mix in, between 0 and 1. */
+    amount?: number;
+
+    /** Method for interpolating hue values. */
+    hue?: HueInterpolationMethod;
+
+    /** Easing function to apply to the interpolation parameter. */
+    easing?: Easing | ((t: number) => number);
+
+    /** Gamma correction value to use during mixing. */
+    gamma?: number;
+};
+```
+
+## Basic Mixing
+
+```js
+import { Color } from "saturon";
+
+const red = Color.from("red");
+const blue = Color.from("blue");
+
+const purple = red.mix(blue); // 50% mix in RGB space
+console.log(purple.to("hex-color")); // #800080
+```
+
+This corresponds exactly to:
+
+```css
+color-mix(in srgb, red, blue)
+```
+
+## Understanding the Mixing Space
+
+By default, the `mix()` method blends colors in the current color model of the instance it's called on. In the example above, since `Color.from("red")` produces a color in the `"rgb"` model, calling `red.mix(blue)` mixes in RGB space. To ensure consistent results — especially when the input color model is unknown (for example, from a user-provided CSS color string) — you can explicitly set the mixing space using the `in()` method:
+
+```js
+const purple = Color.from("red").in("oklch").mix("blue");
+```
+
+This guarantees the blend happens in OKLCH space, regardless of what model `"red"` or `"blue"` originally use.
+
+<Callout title="Note on Color Spaces">
+According to the [W3C Color 5 specification](https://www.w3.org/TR/css-color-5/#interpolation-space), `rgb` is not a valid `<rectangular-color-space>` for `color-mix()`. However, Saturon allows mixing in any registered color model, including `"rgb"`.
+
+For example:
+
+```js
+Color.from("color-mix(in rgb, red, blue)");
+```
+
+throws an invalid `color-mix()` syntax error per CSS rules, but:
+
+```js
+Color.from("red").mix("blue");
+```
+
+will successfully blend in the RGB model internally.
+
+</Callout>
+
+## Controlling Blend Amount
+
+```js
+const mixed = red.mix("yellow", { amount: 0.3 });
+console.log(mixed.to("rgb")); // rgb(255 77 0)
+```
+
+`amount` specifies how much of the second color is mixed in (`0-1`, clamped if out of range).
+
+Equivalent CSS:
+
+```css
+color-mix(in srgb, red, yellow 30%)
+```
+
+## Hue Interpolation Paths
+
+When mixing colors in a hue-based model (`hsl`, `lch`, `oklch`, etc.), you can control how hue values wrap around the color wheel.
+
+```js
+const teal = Color.from("hsl(180 100% 50%)");
+const pink = Color.from("hsl(330 100% 50%)");
+
+// Default: shortest arc (150° → 330°)
+console.log(teal.mix(pink).toString()); // hsl(255 100% 50%)
+
+// Force longer arc
+console.log(teal.mix(pink, { hue: "longer" }).toString()); // hsl(75 100% 50%)
+```
+
+Equivalent CSS:
+
+```css
+color-mix(in hsl, hsl(180 100% 50%), hsl(330 100% 50%))
+color-mix(in hsl longer hue, hsl(180 100% 50%), hsl(330 100% 50%))
+```
+
+| Option         | Path Description           |
+| -------------- | -------------------------- |
+| `"shorter"`    | The smaller (≤180°) arc    |
+| `"longer"`     | The larger (>180°) arc     |
+| `"increasing"` | Clockwise rotation         |
+| `"decreasing"` | Counter-clockwise rotation |
+
+## Easing Functions
+
+Use easing to apply non-linear interpolation, perfect for animated transitions.
+
+```js
+// Built-in easing
+const eased = red.mix(blue, { amount: 0.5, easing: "ease-in-out" });
+console.log(eased.toString()); // rgb(128 0 128)
+
+// Custom easing (bounce)
+const bounceOut = (t: number) => {
+    const n1 = 7.5625, d1 = 2.75;
+    if (t < 1 / d1) return n1 * t * t;
+    if (t < 2 / d1) return n1 * (t -= 1.5 / d1) * t + 0.75;
+    if (t < 2.5 / d1) return n1 * (t -= 2.25 / d1) * t + 0.9375;
+    return n1 * (t -= 2.625 / d1) * t + 0.984375;
+};
+
+const bouncy = red.mix(blue, { amount: 0.5, easing: bounceOut });
+console.log(bouncy.toString()); // rgb(60 0 195)
+```
+
+Built-in easings:
+`linear`, `ease-in`, `ease-out`, `ease-in-out`, `ease-in-cubic`, `ease-out-cubic`, `ease-in-out-cubic`
+
+## Gamma Correction
+
+Gamma correction affects how lightness is perceived during interpolation.
+
+```js
+// Linear blend (no correction)
+const linear = red.mix("blue", { amount: 0.5 });
+
+// Perceptually uniform blend
+const perceptual = red.mix("blue", { amount: 0.5, gamma: 2.2 });
+```
+
+`gamma = 2.2` approximates the perceptual correction used by sRGB.
+
+## Alpha & Premultiplied Blending
+
+When mixing transparent colors, Saturon performs premultiplied alpha blending following the [W3C Color 5 specification](https://www.w3.org/TR/css-color-5/#color-mix).
+
+```js
+const semiRed = Color.from("rgba(255 0 0 / 0.5)");
+const semiBlue = Color.from("rgba(0 0 255 / 0.7)");
+
+const blended = semiRed.mix(semiBlue, { amount: 0.6 });
+console.log(blended.toString()); // rgb(82 0 173 / 0.62)
+```
+
+## Practical Use Cases
+
+### 1. Generate Gradient Steps
+
+```js
+function gradientSteps(start, end, steps) {
+    const result = [];
+    for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        result.push(start.mix(end, { amount: t, easing: "ease-in-out" }));
+    }
+    return result;
+}
+
+const steps = gradientSteps(Color.from("#ff6b6b"), Color.from("#4ecdc4"), 5);
+steps.forEach((c) => console.log(c.to("hex-color")));
+```
+
+### 2. Lighten Colors for Hover States
+
+```js
+const base = Color.from("hsl(200 80% 50%)");
+const hover = base.mix("white", { amount: 0.15, gamma: 2.2 });
+console.log(hover.toString()); // lighter shade for hover
+```
+
+## Summary
+
+- Use `mix()` to blend two colors.
+- Use `in(model)` before `mix()` to control the mixing space.
+- Fine-tune results with `amount`, `hue`, `easing`, and `gamma`.
+- Fully compatible with CSS `color-mix()` logic — but more flexible.
+
+See the full API reference: [Color Class: mix()](../api#mix)

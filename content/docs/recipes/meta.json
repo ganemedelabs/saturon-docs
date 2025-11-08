@@ -1,0 +1,12 @@
+{
+    "title": "Recipes",
+    "icon": "BookOpen",
+    "pages": [
+        "index",
+        "register-named-colors",
+        "register-color-functions",
+        "register-color-spaces",
+        "register-plugins"
+    ],
+    "defaultOpen": true
+}

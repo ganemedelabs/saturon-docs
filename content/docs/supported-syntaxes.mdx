@@ -1,0 +1,79 @@
+---
+title: Supported Color Syntaxes
+icon: FileCode
+description: Comprehensive guide to all CSS color syntaxes supported by Saturon
+---
+
+Saturon provides complete support for the CSS `<color>` syntax as defined in the [CSS Color Module Level 5](https://www.w3.org/TR/css-color-5/#color-syntax). This includes standard formats, modern color spaces, and advanced constructs such as `color-mix()` and relative colors.
+
+## The `<color>` Syntax
+
+In CSS Color 5, the `<color>` type defines a broad set of representations:
+
+```
+<color> = <color-base> | currentColor | <system-color> |
+          <contrast-color()> | <device-cmyk()> | <light-dark()>
+```
+
+Saturon can parse and evaluate all of these forms, from absolute colors (like `rgb()` and `oklab()`) to context-dependent ones (like `currentColor` or `light-dark()`).
+
+Each category below includes syntax details, behavior, and examples.
+
+## `<color-base>`
+
+Represents the foundational color formats:
+
+```
+<color-base> = <hex-color> | <color-function> | <named-color> | <color-mix()> | transparent
+```
+
+- Hex colors — 3-8-digit hexadecimal notations with optional alpha, e.g. `#ff5733` or `#ff573380`.
+- Functional colors — such as `rgb()`, `hsl()`, `lab()`, `oklch()`, and more (see below).
+- Named colors — predefined CSS keywords like `red`, `blue`, or `rebeccapurple`.
+- `color-mix()` — blends two colors within a chosen color space using weighted interpolation, e.g. `color-mix(in hsl, red 30%, blue 70%)`.
+- `transparent` — equivalent to `rgba(0 0 0 / 0)`.
+
+## `<color-function>`
+
+The `<color-function>` type encompasses all functional syntaxes:
+
+```
+<color-function> = <rgb()> | <rgba()> | <hsl()> | <hsla()> | <hwb()> |
+                   <lab()> | <lch()> | <oklab()> | <oklch()> | <color()>
+```
+
+- `rgb()` / `rgba()` — Colors in the sRGB space with numeric or percentage values, e.g. `rgb(255 87 51 / 0.8)`.
+- `hsl()` / `hsla()` — Hue, saturation, and lightness, e.g. `hsl(50 100% 30%)`.
+- `hwb()` — Hue, whiteness, and blackness, e.g. `hwb(120 20% 30%)`.
+- `lab()` / `lch()` — Perceptual color spaces defined in CIE Lab, e.g. `lab(50 20 30)`.
+- `oklab()` / `oklch()` — Modern perceptual spaces for smoother gradients and intuitive editing, e.g. `oklch(0.5 0.2 240)`.
+- `color()` — Explicit color-space syntax for wide-gamut and device-specific spaces, e.g. `color(display-p3 0.7 0.3 0.1)` or `color(rec2020 0.7 0.3 0.1)`.
+
+<Callout title="Tip">
+    The `color()` function supports a wide range of color spaces, including `srgb`, `display-p3`, `rec2020`, `a98-rgb`,
+    `prophoto-rgb`, `xyz-d65`, and more.
+</Callout>
+
+## `currentColor`
+
+The `currentColor` keyword represents the computed value of the element's `color` property.
+Because it depends on the current context, Saturon treats it as a stable placeholder (defaulting to `rgb(0 0 0)`) for consistent parsing and transformations.
+
+## `<system-color>`
+
+System colors such as `Canvas`, `CanvasText`, and `ButtonFace` reflect user interface theme colors from the OS or browser.
+For example, `Canvas` corresponds to the system's default background color.
+
+## `<contrast-color()>`
+
+The `contrast-color()` function chooses the most readable color (typically `black` or `white`) against a given base color, e.g. `contrast-color(blue)`.
+
+This makes it easy to ensure text readability on dynamic backgrounds.
+
+## `<device-cmyk()>`
+
+Defines colors in device-dependent CMYK space, mainly for print workflows, e.g. `device-cmyk(0% 50% 50% 0%)`.
+
+## `<light-dark()>`
+
+Selects between two colors depending on the user's current color scheme. For example, `light-dark(red, blue)` would render red in light mode and blue in dark mode.

@@ -1,0 +1,19 @@
+---
+title: Linear Rec. 2100
+description: A recipe to register the Linear Rec. 2100 color space in Saturon.
+---
+
+```ts
+import { registerColorSpace } from "saturon/utils";
+import { MATRICES } from "saturon/math";
+
+/**
+ * @see {@link https://www.w3.org/TR/css-color-hdr-1/|CSS Color HDR Module Level 1}
+ */
+registerColorSpace("rec2100-linear", {
+    components: ["r", "g", "b"],
+    bridge: "xyz-d65",
+    toBridgeMatrix: MATRICES.REC2020_to_XYZD65,
+    fromBridgeMatrix: MATRICES.XYZD65_to_REC2020,
+});
+```

@@ -1,0 +1,30 @@
+---
+title: Math Constants
+description: Documentation of the main mathematical constants in Saturon.
+---
+
+The `"saturon/math"` module exports various mathematical constants and utility functions used throughout the Saturon library. These constants are essential for accurate color computations and conversions.
+
+## Exported Math Utilities
+
+### Conversion Functions
+
+| Name             | Signature            | Purpose                         |
+| ---------------- | -------------------- | ------------------------------- |
+| `RGB_to_XYZD65`  | `(r,g,b) => [X,Y,Z]` | sRGB → XYZ (D65)                |
+| `HSL_to_RGB`     | `(h,s,l) => [r,g,b]` | HSL → sRGB                      |
+| `LAB_to_LCH`     | `(L,a,b) => [L,C,h]` | CIE Lab → LCH                   |
+| `OKLAB_to_OKLCH` | `(L,a,b) => [L,C,h]` | OKLab → OKLCH                   |
+| _(many more…)_   | —                    | All model ↔ bridge conversions |
+
+### Matrices
+
+```ts
+export const MATRICES: {
+    D50_to_D65: number[][];
+    SRGB_to_XYZD65: number[][];
+    P3_to_XYZD65: number[][];
+    REC2020_to_XYZD65: number[][];
+    // …
+};
+```

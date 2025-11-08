@@ -1,0 +1,5 @@
+{
+    "title": "Saturon",
+    "pages": ["index", "supported-syntaxes", "guides", "api", "recipes", "architecture", "faq"],
+    "defaultOpen": true
+}

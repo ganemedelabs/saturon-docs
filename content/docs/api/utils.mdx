@@ -1,0 +1,497 @@
+---
+title: Utilities
+description: Documentation of utility functions in Saturon.
+---
+
+The `"saturon/utils"` module provides utility functions to configure and extend the `Color` class, enabling custom color types, spaces, plugins, and gamut mapping methods. These functions are essential for tailoring Saturon to specific use cases, such as registering new color formats, defining custom color spaces, or adding named colors. Import them as needed:
+
+```js
+import {
+    configure,
+    use,
+    registerColorType,
+    registerColorBase,
+    registerColorFunction,
+    registerColorSpace,
+    registerNamedColor,
+    registerFitMethod,
+} from "saturon/utils";
+```
+
+Below are the detailed specifications for each utility function.
+
+## `configure()`
+
+The `configure()` function merges user-provided configuration options into the global `config` object, allowing customization of Saturon's behavior, such as updating the current theme or changing the values of system colors.
+
+### Syntax
+
+```ts
+configure(options: Partial<Config>): void
+```
+
+- **`options`**: A partial object containing configuration settings to merge into the global `config`. Nested objects are merged recursively, while non-object values overwrite existing ones.
+- **Returns**: `void`
+- **Throws**: None; invalid inputs are safely ignored.
+
+### Behavior
+
+- Recursively merges the `options` object into the global `config` using a deep merge strategy.
+- For each key in `options`:
+    - If the value is a non-array object, creates a new object in `config` if it doesn't exist and merges nested properties.
+    - If the value is a non-object or array, overwrites the corresponding key in `config`.
+- Ignores `undefined` values to preserve existing configuration.
+
+### Example
+
+```js
+import { configure } from "saturon/utils";
+
+// Update theme to dark mode
+configure({ theme: "dark" });
+
+// Set default gamut mapping method
+configure({ defaults: { fit: "css-gamut-map" } });
+
+// Change system color values (case-sensitive)
+configure({
+    systemColors: {
+        SelectedItem: [
+            [0, 120, 255], // For light theme
+            [0, 90, 255], // For dark theme
+        ],
+    },
+});
+
+console.log(config); // Updated config with merged settings
+```
+
+## `use()`
+
+The `use()` function registers one or more plugins to extend the `Color` class, enabling custom methods or behavior.
+
+### Syntax
+
+```ts
+use(...pluginFns: Plugin[]): void
+```
+
+- **`pluginFns`**: One or more functions that receive the `Color` class as an argument and enhance it (e.g., by adding methods to its prototype).
+- **Returns**: `void`
+- **Throws**:
+    - If no plugins are provided.
+    - If a plugin is not a function.
+
+### Behavior
+
+- Validates that at least one plugin is provided.
+- Iterates through `pluginFns`, checking each is a function.
+- Skips already registered plugins (tracked in `plugins` set) with a warning.
+- Executes each plugin, passing the `Color` class, and adds it to the `plugins` set.
+- Logs errors for failing plugins without interrupting the process.
+
+### Example
+
+```js
+import { use } from "saturon/utils";
+import { Color } from "saturon";
+
+// Add a custom method to Color
+const luminancePlugin = (ColorClass) => {
+    ColorClass.prototype.luminance = function () {
+        const [, luminance] = this.in("xyz-d65").toArray({ fit: "none", precision: null });
+        return luminance;
+    };
+};
+
+use(luminancePlugin);
+const color = Color.from("rgb(255 87 51)");
+console.log(color.luminance()); // ~0.28
+
+// Register multiple plugins
+const contrastPlugin = (ColorClass) => {
+    ColorClass.prototype.customContrast = function () {
+        /* ... */
+    };
+};
+use(luminancePlugin, contrastPlugin); // Skips duplicate luminancePlugin
+
+// Invalid plugin
+try {
+    use("not a function");
+} catch (e) {
+    console.log(e.message); // Plugin at index 0 is not a function (received string)
+}
+```
+
+<Callout title="Note">
+    Plugins are executed only once to avoid redundant modifications. For more plugin recipes, see [Register
+    Plugins](./recipes/register-plugins).
+</Callout>
+
+## `registerColorType()`
+
+The `registerColorType()` function registers a new `<color>` converter (e.g., `device-cmyk`, `contrast-color`) under a specified name, enabling support for custom color syntaxes in `Color.from()` and `Color.to()`.
+
+### Syntax
+
+```ts
+registerColorType(name: string, converter: ColorConverter): void
+```
+
+- **`name`**: A unique name for the `<color>` converter (e.g., `"color-at"`). Whitespace is replaced with hyphens and lowercased.
+- **`converter`**: An object implementing `ColorConverter` with:
+    - `isValid`: Function to validate the color string. It should be quick check to avoid performance issues, e.g., returning `string.startsWith("color-at(")` for a `color-at()` type.
+    - `bridge`: String specifying the bridge model (e.g., `"rgb"`, `"xyz-d65"`). It should match a valid model in `colorModels`.
+    - `toBridge`: Function to convert parsed values to the bridge model. Never clip or fit values here; that should be handled by the engine using the `colorModels` component definitions.
+    - `parse`: Function to parse the color string into coordinates.
+    - `fromBridge` (optional): Function to convert bridge coordinates to the type's format. Since `colorTypes` don't have component definitions, you can clip or fit values here if needed.
+    - `format` (optional): Function to format coordinates as a string.
+- **Returns**: `void`
+- **Throws**:
+    - If `name` is already used.
+    - If `converter` is not a non-null object.
+    - If required properties (`isValid`, `bridge`, `toBridge`, `parse`) are missing or invalid.
+    - If `fromBridge` or `format` is provided but not a function.
+    - If `fromBridge` and `format` are not both provided or both omitted.
+    - If `bridge` does not match a valid model in `colorModels`.
+
+<Callout title="Note">
+    If `fromBridge` and `format` are omitted, the converter is considered one-way (only supports `Color.from()`). This
+    is useful for non-functional syntaxes or when reverse conversion is not feasible, such as `contrast-color()`.
+</Callout>
+
+### Behavior
+
+- Normalizes `name` by replacing whitespace with hyphens and lowercasing.
+- Validates `name` uniqueness against `colorTypes`.
+- Checks `converter` for required properties and types.
+- Ensures `fromBridge` and `format` are either both present or both absent.
+- Registers the converter in `colorTypes` and clears the conversion graph cache (`cache.delete("graph")`).
+
+### Example
+
+```js
+import { registerColorType } from "saturon/utils";
+import { Color } from "saturon";
+
+// Register a custom color-at color type
+registerColorType("color-at", {
+    isValid: (str) => str.startsWith("color-at(") && str.endsWith(")"),
+    bridge: "rgb",
+    toBridge: (coords) => coords,
+    parse: (str) => [],
+});
+
+const color = Color.from("color-at('06:00' skyblue, '12:00' gold, '18:00' orangered, '00:00' midnightblue)");
+console.log(color.to("named-color")); // e.g., orangered
+```
+
+## `registerColorBase()`
+
+The `registerColorBase()` function registers a new `<color-base>` converter (e.g., for non-functional color syntaxes) under a specified name, enabling support in `Color.from()` and `Color.to()`.
+
+### Syntax
+
+```ts
+registerColorBase(name: string, converter: ColorConverter): void
+```
+
+- **`name`**: A unique name for the `<color-base>` converter (e.g., `"custom-base"`). Whitespace is replaced with hyphens and lowercased.
+- **`converter`**: An object implementing `ColorConverter` with:
+    - `isValid`: Function to validate the color string. It should be quick check to avoid performance issues, e.g., returning `string.startsWith("wavelength(")` for a `wavelength()` type.
+    - `bridge`: String specifying the bridge model (e.g., `"rgb"`, `"xyz-d65"`). It should match a valid model in `colorModels`.
+    - `toBridge`: Function to convert parsed values to the bridge model. Never clip or fit values here; that should be handled by the engine using the `colorModels` component definitions.
+    - `parse`: Function to parse the color string into coordinates.
+    - `fromBridge` (optional): Function to convert bridge coordinates to the type's format. Since `colorBases` don't have component definitions, you can clip or fit values here if needed.
+    - `format` (optional): Function to format coordinates as a string.
+- **Returns**: `void`
+- **Throws**: Same as `registerColorType()`.
+
+### Behavior
+
+- Normalizes `name` by replacing whitespace with hyphens and lowercasing.
+- Validates `name` uniqueness against `colorTypes`.
+- Checks `converter` for required properties.
+- Ensures `fromBridge` and `format` are either both present or both absent.
+- Registers the converter in both `colorBases` and `colorTypes`.
+- Clears the conversion graph cache (`cache.delete("graph")`).
+
+### Example
+
+```js
+import { registerColorBase } from "saturon/utils";
+import { Color } from "saturon";
+
+// Register a custom base color type
+registerColorBase("wavelength", {
+    isValid: (str) => str.startsWith("wavelength("),
+    bridge: "xyz-d65",
+    toBridge: (coords) => coords,
+    parse: (str) => [],
+    fromBridge: (coords) => coords,
+    format: (coords) => `wavelength(${coords[0]})`,
+});
+
+const color = Color.from("wavelength(360)");
+console.log(color.to("rgb")); // converted via xyz-d65 color space
+console.log(color.to("wavelength")); // wavelength(360)
+```
+
+## `registerColorFunction()`
+
+The `registerColorFunction()` function registers a new `<color-function>` converter (e.g., `rgb()`, `hsl()`) under a specified name, enabling support for functional color syntaxes with defined components.
+
+### Syntax
+
+```ts
+registerColorFunction(name: string, converter: ColorModelConverter): void
+```
+
+- **`name`**: A unique name for the `<color-function>` converter (e.g., `"customfn"`). Whitespace is removed and lowercased.
+- **`converter`**: An object implementing `ColorModelConverter` with:
+    - `components`: Object mapping component names (e.g., `h`, `s`, `l`) to `ComponentDefinition` objects. Example for `lch`:
+        ```ts
+        {
+            l: { index: 0, value: "percentage", precision: 5 },
+            c: { index: 1, value: [0, 150], precision: 5 },
+            h: { index: 2, value: "angle", precision: 5 },
+        }
+        ```
+    - `bridge`: String specifying the bridge model. It should match a valid model in `colorModels`.
+    - `toBridge`: Function to convert to the bridge model. Never clip or fit values here; that should be handled by the engine using the component definitions.
+    - `fromBridge`: Function to convert from the bridge model. Never clip or fit values here; that should be handled by the engine using the component definitions.
+    - `targetGamut` (optional): String or `null` specifying the target gamut. `null` means the model has no limited gamut (e.g., `lab` or `lch`).
+    - `supportsLegacy` (optional): Boolean indicating legacy syntax support, e.g., allowing commas in `rgb()`. Defaults to `false`.
+    - `alphaVariant` (optional): String specifying the alpha variant (e.g., `"hsla"` for `hsl` in it's legacy syntax).
+- **Returns**: `void`
+- **Throws**:
+    - If `name` is already used.
+    - If `converter` is invalid.
+    - If `components` is not a non-null object.
+    - If required properties are missing or invalid.
+    - If `targetGamut` is not a string or `null`.
+    - If `supportsLegacy` is not a boolean.
+    - If `alphaVariant` is not a string.
+    - If `components` has duplicate or invalid names.
+
+### Behavior
+
+- Normalizes `name` by removing whitespace and lowercasing.
+- Validates `name` uniqueness against `colorTypes`.
+- Normalizes `converter.components` keys to lowercase.
+- Checks `converter` for required properties and optional properties.
+- Ensures `components` has unique names and excludes `"none"`.
+- Converts `converter` to a `ColorConverter` using `modelConverterToColorConverter()`.
+- Registers the converter in `colorModels`, `colorFunctions`, and `colorTypes`.
+- Clears the conversion graph cache (`cache.delete("graph")`).
+
+### Example
+
+```js
+import { registerColorFunction } from "saturon/utils";
+import { Color } from "saturon";
+
+// Register a custom color function
+registerColorFunction("ictcp", {
+    components: {
+        i: { index: 0, value: [0, 1], precision: 5 },
+        ct: { index: 1, value: [-1, 1], precision: 5 },
+        cp: { index: 2, value: [-1, 1], precision: 5 },
+    },
+    bridge: "rec2020",
+    toBridge: (coords) => coords,
+    fromBridge: (coords) => coords,
+});
+
+const color = Color.from("ictcp(0.2 0.2 -0.1)");
+console.log(color.to("rgb")); // converted via rec2020 color space
+console.log(color.to("ictcp")); // ictcp(0.2 0.2 -0.1)
+```
+
+## `registerColorSpace()`
+
+The `registerColorSpace()` function registers a new color space converter for the `<color()>` function (e.g., `color(rec2100-linear 1 1 1)`), enabling support for custom color spaces with matrix-based conversions.
+
+### Syntax
+
+```ts
+registerColorSpace(name: string, converter: ColorSpaceConverter): void
+```
+
+- **`name`**: A unique name for the color space (e.g., `"rec2100-linear"`). Whitespace is replaced with hyphens and lowercased.
+- **`converter`**: An object implementing `ColorSpaceConverter` with:
+    - `components`: Array of component names (e.g., `["r", "g", "b"]`).
+    - `bridge`: String specifying the bridge model (e.g., `"xyz-d65"`).
+    - `toBridgeMatrix`: 2D array of numbers for matrix conversion to the bridge model.
+    - `fromBridgeMatrix`: 2D array of numbers for matrix conversion from the bridge model.
+    - `targetGamut` (optional): Must be `null` if provided. `null` means the model has no limited gamut (e.g., `xyz-d65` or `xyz-d50`).
+    - `toLinear` (optional): Function for linearization.
+    - `fromLinear` (optional): Function for delinearization.
+- **Returns**: `void`
+- **Throws**:
+    - If `name` is already used.
+    - If `converter` is invalid.
+    - If `components` is not an array of strings.
+    - If `bridge` is not a string.
+    - If `toBridgeMatrix` or `fromBridgeMatrix` is not a 2D array of numbers.
+    - If `targetGamut` is provided and not `null`.
+    - If `toLinear` or `fromLinear` is provided but not a function.
+
+### Behavior
+
+- Normalizes `name` by replacing whitespace with hyphens and lowercasing.
+- Validates `name` uniqueness against `colorTypes`.
+- Checks `converter` for required properties and optional properties.
+- Converts `converter` to a `ColorModelConverter` using `spaceConverterToModelConverter()` and then to a `ColorConverter` using `modelConverterToColorConverter()`.
+- Registers the converter in `colorSpaces`, `colorModels`, `colorFunctions`, and `colorTypes`.
+- Clears the conversion graph cache (`cache.delete("graph")`).
+
+### Example
+
+```js
+import { registerColorSpace } from "saturon/utils";
+import { MATRICES } from "saturon/math";
+import { Color } from "saturon";
+
+// Register a custom color space
+registerColorSpace("rec2100-linear", {
+    components: ["r", "g", "b"],
+    bridge: "xyz-d65",
+    toBridgeMatrix: MATRICES.REC2020_to_XYZD65,
+    fromBridgeMatrix: MATRICES.XYZD65_to_REC2020,
+});
+
+const color = Color.from("color(rec2100-linear 0.7 0.3 0.1)");
+console.log(color.to("rgb")); // Converted via xyz-d65 color space
+console.log(color.to("rec2100-linear")); // color(rec2100-linear 0.7 0.3 0.1)
+```
+
+<Callout title="Tip">
+    You can use predefined matrices from `MATRICES` in `saturon/math` for common color spaces like Rec. 2020, Display
+    P3, etc.
+</Callout>
+
+## `registerNamedColor()`
+
+The `registerNamedColor()` function registers a new `<named-color>` with a specified RGB value, enabling its use in `Color.from()` and `Color.to()`.
+
+### Syntax
+
+```ts
+registerNamedColor(name: string, rgb: [number, number, number]): void
+```
+
+- **`name`**: A case-insensitive name for the color (letters only, e.g., `"brandblue"`).
+- **`rgb`**: An array of exactly three numbers representing RGB values (e.g., `[255, 87, 51]`).
+- **Returns**: `void`
+- **Throws**:
+    - If `rgb` is not an array of three numbers.
+    - If `name` is already registered.
+    - If `rgb` is already registered under another name.
+
+### Behavior
+
+- Normalizes `name` by removing non-letters and lowercasing.
+- Validates `rgb` as an array of three numbers.
+- Checks `name` and `rgb` uniqueness against `namedColors`.
+- Registers the `rgb` value in `namedColors` under `name`.
+
+### Example
+
+```js
+import { registerNamedColor } from "saturon/utils";
+import { Color } from "saturon";
+
+// Register a custom named color
+registerNamedColor("brandblue", [0, 128, 255]);
+const color = Color.from("brandblue");
+console.log(color.to("rgb")); // rgb(0 128 255)
+```
+
+## `registerFitMethod()`
+
+The `registerFitMethod()` function registers a new gamut mapping method for use in `Color.to()`, `Color.toString()`, `Color.toArray()`, `Color.toObject()`, and `Color.within()`.
+
+### Syntax
+
+```ts
+registerFitMethod(name: string, method: FitFunction): void
+```
+
+- **`name`**: A unique name for the fit method (e.g., `"custom-fit"`). Whitespace is replaced with hyphens and lowercased.
+- **`method`**: A function implementing the gamut mapping logic, accepting coordinates, model, and options.
+- **Returns**: `void`
+- **Throws**:
+    - If `name` is already used.
+    - If `method` is not a function.
+
+### Behavior
+
+- Normalizes `name` by replacing whitespace with hyphens and lowercasing.
+- Validates `name` uniqueness against `fitMethods`.
+- Checks that `method` is a function.
+- Registers the `method` in `fitMethods`.
+
+### Example
+
+```js
+import { registerFitMethod } from "saturon/utils";
+import { Color } from "saturon";
+
+// Register a custom fit method
+registerFitMethod("cam16-ucs", (coords, model, options) => {
+    /* ... */
+});
+
+const color = Color.from("color(display-p3 1.5 0 0)").in("rgb");
+console.log(color.toArray({ fit: "cam16-ucs" })); // [255, 0, 0, 1]
+```
+
+## `register()`
+
+The `register()` function **bulk registers multiple converters** of a specified type (e.g., color functions, named colors, fit methods) in a single call. It's ideal for plugins, design tokens, or theme systems that need to register many custom colors or spaces at once.
+
+### Syntax
+
+```ts
+register<T extends ConverterType>(type: T, entries: ConverterEntry<T>[]): void
+```
+
+- **`type`**: A string specifying the converter type to register. Must be one of:
+    - `"color-type"`
+    - `"color-base"`
+    - `"color-function"`
+    - `"color-space"`
+    - `"named-color"`
+    - `"fit-method"`
+- **`entries`**: An array of objects with:
+    - `name`: The unique name for the converter.
+    - `value`: The converter configuration (type-safe based on `type`).
+- **Returns**: `void`
+- **Throws**: Propagates any errors from the underlying registration function (e.g., duplicate name, invalid converter).
+
+### Behavior
+
+- Looks up the appropriate registration function from `converterRegistry` based on `type`.
+- Iterates through `entries` and calls the corresponding function (`registerColorType`, `registerColorSpace`, etc.) for each.
+
+### Example
+
+```js
+import { register } from "saturon/utils";
+import { Color } from "saturon";
+
+// Bulk register named colors (e.g., brand palette)
+register("named-color", [
+    { name: "brand-primary", value: [0, 122, 255] },
+    { name: "brand-secondary", value: [108, 117, 125] },
+    { name: "success", value: [40, 167, 69] },
+]);
+
+// Bulk register fit methods
+register("fit-method", [
+    { name: "soft-clip", value: (coords) => coords.map((c) => Math.max(0, Math.min(255, c * 0.95))) },
+    { name: "hard-clip", value: (coords) => coords.map((c) => Math.max(0, Math.min(255, c))) },
+]);
+```

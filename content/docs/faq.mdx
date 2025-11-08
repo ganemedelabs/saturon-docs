@@ -1,0 +1,383 @@
+---
+title: FAQ
+icon: CircleQuestionMark
+description: Common questions about using Saturon's Color class and utilities
+---
+
+## How do I create a new `Color` instance?
+
+Use `Color.from()` to create a `Color` instance from a CSS color string, `new Color(model, coords)` for explicit model and coordinates, or `Color.random()` for random colors.
+
+**Example**:
+
+```js
+import { Color } from "saturon";
+
+const fromString = Color.from("#ff5733"); // { model: "rgb", coords: [255, 87, 51, 1] }
+const fromCoords = new Color("hsl", [120, 100, 50]); // { model: "hsl", coords: [120, 100, 50, 1] }
+const randomColor = Color.random(); // Random color
+```
+
+See [Guides: Creating Color Instances](./guides/creating-colors).
+
+## How do I convert a color to a different model?
+
+Use the `in()` method to convert a `Color` instance to another model (e.g., `hsl` to `oklab`). It returns a new `Color` instance in the specified model, using a graph-based conversion path through bridge spaces (e.g., `xyz-d65`).
+
+**Example**:
+
+```js
+import { Color } from "saturon";
+
+const rgbColor = Color.from("rgb(255 87 51)");
+const hslColor = rgbColor.in("hsl");
+console.log(hslColor.toString()); // hsl(15 100 60)
+```
+
+<Callout type="warn" title="Note">
+    Don't confuse `in()` with the `to()` method — `in()` converts the color to another model, while `to()` converts it
+    to a string or output format.
+</Callout>
+
+See [Color Class: in()](./api#in).
+
+## What's the difference between `to()` and `toString()`?
+
+The `to()` method converts a `Color` instance to any supported output type in `colorTypes` (e.g., `rgb`, `hsl`, `named-color`, `device-cmyk`), including non-model formats like `hex-color` that can't be used as color models themselves. It supports formatting options like `legacy`, `fit`, and `precision`. In contrast, `toString()` formats the color as a string in its current model (e.g., `rgb`, `hsl`, `oklch`) only, using the same formatting options but without model conversion.
+
+**Example**:
+
+```js
+import { Color } from "saturon";
+
+const color = Color.from("rgb(255 87 51)");
+console.log(color.to("hex-color")); // #ff5733 (non-model output type)
+console.log(color.toString()); // rgb(255 87 51) (current model only)
+console.log(color.toString({ legacy: true })); // rgb(255, 87, 51)
+```
+
+See [Color Class: to()](./api#to) and [Color Class: toString()](./api#tostring).
+
+## What's the difference between `toArray()` and the `coords` property?
+
+The `coords` property exposes the raw, unprocessed coordinate values of the `Color` instance in its current model. It returns the coordinates exactly as they were defined — including any special numeric values such as `NaN`, `Infinity`, or `-Infinity` — without applying gamut mapping, or normalization.
+
+In contrast, the `toArray()` method returns a normalized array of coordinates. It respects options like `fit` and `precision`, and also maps special numeric values to their CSS-equivalent representations:
+
+- `NaN` → treated as the CSS keyword `none` (converted to 0)
+- `Infinity` → treated as `calc(infinity)` (converted to the maximum representable value in the model)
+- `-Infinity` → treated as `calc(-infinity)` (converted to the minimum representable value in the model)
+
+**Example:**
+
+```js
+import { Color } from "saturon";
+
+const color = new Color("hsl", [NaN, -Infinity, Infinity]);
+
+console.log(color.coords); // [NaN, -Infinity, Infinity]
+console.log(color.toArray()); // [0, 0, 255]
+```
+
+See [Color Class: toArray()](./api#toarray) and [Color Class Constructor](./api#constructor)
+
+## How do I modify a color's components?
+
+Use the `with()` method to create a new `Color` instance with updated component values. It supports direct updates, functional updates, or coordinate array replacements.
+
+**Example**:
+
+```js
+import { Color } from "saturon";
+
+const color = Color.from("hsl(120 100% 50%)");
+const adjusted = color.with({ l: 30 }); // hsl(120 100 30)
+const transformed = color.with({ s: (s) => s * 0.5 }); // hsl(120 50 50)
+```
+
+<Callout title="Pro Tip">
+
+Always call `in()` before using `with()`. The `with()` method can throw an error if you try to update a component that doesn't exist in the color's current model. Using `in()` first ensures that you're working in the correct color space and gives you type-safe access to components — without forcing an unnecessary conversion if the color is already in that model.
+
+**Example:**
+
+```js
+const color = Color.from("purple");
+
+// Unsafe — throws, because "purple" is in the "rgb" model
+const unsafe = color.with({ h: (h) => h + 30 });
+
+// Safe — ensures conversion to "hsl" first
+const safe = color.in("hsl").with({ h: (h) => h + 30 });
+```
+
+</Callout>
+
+See [Color Class: with()](./api#with), and [Color Class: in()](./api#in).
+
+## How do I mix two colors?
+
+The `mix()` method blends the current `Color` instance with another color, supporting hue interpolation methods, easing functions, and alpha blending.
+
+**Example**:
+
+```js
+import { Color } from "saturon";
+
+const color1 = Color.from("hsl(50 100% 50%)");
+const color2 = Color.from("hsl(200 100% 50%)");
+const mixed = color1.mix(color2, { amount: 0.5, hue: "shorter" });
+console.log(mixed.toString()); // hsl(125 100 50)
+```
+
+This is equivalent to the CSS `color-mix()` expression `color-mix(in hsl shorter hue, hsl(50 100% 50%), hsl(200 100% 50%) 50%)`, which can be parsed using `Color.from()` and yields the same result.
+
+<Callout title="Pro tip">
+
+To specify the color interpolation model for mixing, use `in()` before `mix()`.
+
+**Example:**
+
+```js
+import { Color } from "saturon";
+
+const color1 = Color.from("hsl(50 100% 50%)");
+const color2 = Color.from("hsl(200 100% 50%)");
+const inOklab = color1.in("oklab").mix(color2);
+const inOklch = color1.in("oklch").mix(color2);
+
+console.log(inOklab.to("hsl")); // hsl(147 24 70)
+console.log(inOklch.to("hsl")); // hsl(168 100 32)
+```
+
+</Callout>
+
+See [Guides: Color Mixing & Interpolation](./guides/color-mixing).
+
+## How do I ensure a color fits within a specific gamut?
+
+Use the `within()` method to fit a color into a target gamut (e.g., `srgb`, `display-p3`) using methods like `clip` or `css-gamut-map`. You can also specify `fit` in `to()`, `toString()`, `toArray()`, or `toObject()`.
+
+**Example**:
+
+```js
+import { Color } from "saturon";
+
+const wideColor = Color.from("color(display-p3 1 0 0)");
+const srgbColor = wideColor.within("srgb", "clip");
+console.log(srgbColor.to("rgb")); // rgb(255 0 0)
+```
+
+See [Color Class: within()](./api#within).
+
+## How do I calculate the luminance of a color?
+
+According to the WCAG 2.1 definition, use the Y component from the color's XYZ representation.
+
+**Example**:
+
+```js
+import { Color } from "saturon";
+
+const color = Color.from("rgb(25 189 151)");
+const [, luminance] = color.in("xyz-d65").toArray();
+```
+
+See [Color Class: in()](./api#in).
+
+## How do I calculate the contrast ratio between two colors?
+
+The `contrast()` method computes the WCAG 2.1 contrast ratio between two colors, useful for accessibility checks. Ratios ≥4.5 are recommended for normal text.
+
+**Example**:
+
+```js
+import { Color } from "saturon";
+
+const textColor = Color.from("rgb(50 50 50)");;.
+const bgColor = Color.from("white");
+console.log(textColor.contrast(bgColor)); // e.g., 12.8 (accessible)
+```
+
+<Callout type="warn" title="Note on the WCAG contrast algorithm">
+    The [W3C CSS Color Level 5 specification](https://www.w3.org/TR/css-color-5/#contrast-color) cautions against
+    relying solely on the WCAG 2.1 §1.4.3 contrast ratio algorithm when determining whether to use light or dark colors.
+    This is because the WCAG 2.1 method has several known limitations — like poor hue handling and perceptual
+    differences. That said, the `contrast()` method remains suitable for most accessibility use cases, especially for
+    verifying compliance with [WCAG 2.1 §1.4.3 (Contrast — Minimum)](https://www.w3.org/TR/WCAG21/#contrast-minimum)
+    requirements (e.g., AA-level contrast for normal or large text), which are still widely referenced in accessibility
+    standards and legal guidelines.
+</Callout>
+
+See [Guides: Accessibility & Color Difference Checks](./guides/accessibility-checks#contrast).
+
+## How do I measure color differences?
+
+Use `deltaEOK()`, `deltaE76()`, `deltaE94()`, or `deltaE2000()` to calculate color differences in OKLAB or LAB color spaces. `deltaE2000()` is the most perceptually accurate.
+
+**Example**:
+
+```js
+import { Color } from "saturon";
+
+const color1 = Color.from("rgb(255 87 51)");
+const color2 = Color.from("rgb(255 100 60)");
+console.log(color1.deltaE2000(color2)); // e.g., 2.5 (small difference)
+```
+
+See [Guides: Accessibility & Color Difference Checks](./guides/accessibility-checks#delta).
+
+## How to use individual modules from Saturon?
+
+You can import specific modules from Saturon to reduce bundle size. Use the following import paths:
+
+- Utilities: `"saturon/utils"`
+- Converters Definitions: `"saturon/converters"`
+- Math Functions: `"saturon/math"`
+- Config and Defaults: `"saturon/config"`
+- TypeScript Types: `"saturon/types"`
+
+**Example**:
+
+```js
+import { use, configure, rergister, cache, plugins } from "saturon/utils";
+import { colorSpaces, colorModels, namedColors } from "saturon/converters";
+import { RGB_to_XYZD65, OKLCH_to_OKLAB, MATRICES } from "saturon/math";
+import { config, systemColors } from "saturon/config";
+import type { ColorType, ColorModel, NamedColor, Plugin } from "saturon/types";
+```
+
+See [Utilities](./api/utils), [Converter Definitions](./api/converters), [Math Functions](./api/math), [Config and Defaults](./api/config), and [TypeScript Types](./api/types).
+
+## How do I register a custom color type?
+
+Use `registerColorType()` or `registerColorBase()` from `"saturon/utils"` to define new `<color>` or `<color-base>` syntaxes. For functional syntaxes, use `registerColorFunction()`.
+
+**Example**:
+
+```js
+import { registerColorType } from "saturon/utils";
+
+registerColorType("color-at", {
+    isValid: (str) => str.startsWith("color-at("),
+    bridge: "rgb",
+    toBridge: (coords) => coords,
+    parse: (str) => [],
+});
+```
+
+See [API: Utilities](./api/utils).
+
+## Can I add custom methods to the `Color` class?
+
+Yes, use the `use()` function from `"saturon/utils"` to register plugins that extend the `Color` class with custom methods.
+
+**Example**:
+
+```js
+import { use } from "saturon/utils";
+
+use((ColorClass) => {
+    ColorClass.prototype.luminance = function () {
+        const [, luminance] = this.in("xyz-d65").toArray({ fit: "none", precision: null });
+        return luminance;
+    };
+});
+```
+
+See [Utilities: use()](./api/utils#use).
+
+## How do I define a custom color space?
+
+Use `registerColorSpace()` to define a new color space for the `<color()>` function, specifying components and matrix-based conversions.
+
+**Example**:
+
+```js
+import { registerColorSpace } from "saturon/utils";
+
+registerColorSpace("custom-space", {
+    components: ["x", "y", "z"],
+    bridge: "xyz-d65",
+    toBridgeMatrix: [
+        [1, 0, 0],
+        [0, 1, 0],
+        [0, 0, 1],
+    ],
+    fromBridgeMatrix: [
+        [1, 0, 0],
+        [0, 1, 0],
+        [0, 0, 1],
+    ],
+});
+```
+
+See [Utilities: registerColorSpace()](./api/utils#registercolorspace).
+
+## How do I add a named color?
+
+Use `registerNamedColor()` to register a custom `<named-color>` with an RGB value.
+
+**Example**:
+
+```js
+import { registerNamedColor } from "saturon/utils";
+
+registerNamedColor("brandblue", [0, 128, 255]);
+const color = Color.from("brandblue");
+console.log(color.to("rgb")); // rgb(0 128 255)
+```
+
+See [Utilities: registerNamedColor()](./api/utils#registernamedcolor).
+
+## How do I customize gamut mapping?
+
+Use `registerFitMethod()` to define a custom gamut mapping method.
+
+**Example**:
+
+```js
+import { registerFitMethod } from "saturon/utils";
+
+registerFitMethod("custom-fit", (coords, model) => {
+    return coords.map((c) => Math.max(0, Math.min(255, c)));
+});
+```
+
+See [Utilities: registerFitMethod()](./api/utils#registerfitmethod).
+
+## Can I output color strings in legacy CSS syntax?
+
+Yes, configure legacy syntax by passing `{ legacy: true }` to `to()` or `toString()` for comma-separated formats like `rgb(255, 0, 0)`.
+
+**Example**:
+
+```js
+import { Color } from "saturon";
+
+const color = Color.from("hsl(30 90 55 / 0.5)");
+console.log(color.toString({ legacy: true })); // hsla(30, 90%, 55%, 0.5)
+```
+
+See [Utilities: to()](./api#to), and [Utilities: toString()](./api#tostring).
+
+## Why does the `legacy` option add `%` to `<percentage>` components even when `units` is `false`?
+
+According to the [W3C CSS Color Level 4 specification](https://www.w3.org/TR/css-color-4/#color-syntax-legacy), `<percentage>` components in functions like `hsl()` must include the `%` symbol in legacy syntax. This means `hsl(270, 100, 50)` is invalid, while `hsl(270, 100%, 50%)` is valid. Unlike `<angle>` components (where units like `deg` are optional), `<percentage>` components require the `%` sign in legacy syntax. Therefore, when using the `legacy` option, Saturon always includes `%` for percentage components — even if the `units` option is set to `false`. The `units` option only affects optional units, such as adding `deg` to `<angle>` components. Since `%` is not optional in legacy syntax, it is always included. In contrast, the modern syntax (`hsl(270 100 50)`) allows percentages to omit the `%` symbol entirely.
+
+See [Utilities: to()](./api#to), and [Utilities: toString()](./api#tostring).
+
+## Why does Saturon allow creating a `Color` instance without specifying coordinates?
+
+When you create a `Color` instance without specifying coordinates, Saturon initializes the color with all zero channel values.
+This ensures you always get a valid color object (e.g., black for `rgb`, or the zero-point for other models).
+
+This can be useful when:
+
+- You want a placeholder or default color before assigning values.
+- You're generating colors programmatically and need a consistent starting point.
+- You want to avoid `null` or `undefined` checks when constructing colors dynamically.
+
+Think of it like creating an empty `Date` or `Vector3(0, 0, 0)` — it's a safe, neutral starting value.
+
+See [Color Class Constructor](./api#constructor)

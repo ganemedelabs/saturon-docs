@@ -1,0 +1,951 @@
+---
+title: Core API
+description: Documentation for the Color class and its methods in Saturon, a JavaScript color engine.
+---
+
+The `Color` class is the core of Saturon. It provides a powerful and type-safe API for creating, manipulating, and converting colors across various models and syntaxes, from standard `rgb` and `hsl` to modern `oklab` and `oklch`. This page details the `Color` class structure, starting with its constructor and primary methods for instantiation. For a complete list of supported color formats, see [Supported Syntaxes](./supported-syntaxes). For an overview of how colors are represented as JavaScript objects, see [Architecture](./architecture). For practical usage, see [Guides](./guides).
+
+## Class Structure
+
+The `Color` class is generic, parameterized by a `ColorModel` type that represents the color space (e.g., `rgb`, `hsl`, `oklab`). It stores the color's model and coordinates, ensuring type safety and validation.
+
+```ts
+export class Color<M extends ColorModel = ColorModel> {
+    model: M;
+    coords: number[];
+}
+```
+
+- **`model`**: The color space identifier (e.g., `"hsl"`, `"oklab"`, `"rec2020"`, `"xyz-d65"`), validated against the internal `colorModels` registry.
+- **`coords`**: An array of 3 or 4 numbers representing the color's channel values (e.g., `[hue, saturation, lightness]` for `hsl`) and an optional alpha channel (defaulting to 1).
+
+The class is designed to work with Saturon's internal architecture, where all color types resolve to `ColorConverter` objects in the `colorTypes` registry, and color models are defined in `colorModels` for manipulation.
+
+## Constructor
+
+The `Color` constructor creates a new `Color` instance by directly specifying a color model and its coordinates. It's ideal for scenarios where you know the exact model and values, such as programmatically generating colors or working with specific color spaces.
+
+### Syntax
+
+```ts
+new Color<M extends ColorModel>(model: M, coords: number[] = [0, 0, 0, 0])
+```
+
+- **`model`**: A string identifying the color model (e.g., `"rgb"`, `"hsl"`, `"oklab"`). Must exist in the `colorModels` registry.
+- **`coords`**: An array of 3 or 4 numbers representing the channel values (e.g., `[r, g, b]` for `rgb`) and an optional alpha channel. Defaults to `[0, 0, 0, 0]`.
+- **Returns**: A new `Color` instance.
+- **Throws**:
+    - If `model` is not in `colorModels`.
+    - If `coords` length is not 3 or 4.
+
+### Behavior
+
+- Validates the `model` against the `colorModels` registry using a strict `in` check.
+- Ensures the `coords` array has exactly 3 or 4 elements.
+- Creates a shallow copy of `coords` to prevent external mutations.
+- If `coords` has 3 elements, appends an alpha value of `1`.
+- Assigns the normalized `coords` and `model` to the instance.
+
+### Example
+
+```js
+import { Color } from "saturon";
+
+// Create an HSL color (hue: 266°, saturation: 87%, lightness: 20%)
+const color = new Color("hsl", [266, 87, 20]);
+console.log(color.to("rgb")); // rgb(33 15 89)
+
+// Create an RGB color with alpha
+const colorWithAlpha = new Color("rgb", [255, 87, 51, 0.8]);
+console.log(colorWithAlpha.to("hex-color")); // #ff5733cc
+```
+
+<Callout title="Note">
+
+    - The `coords` property can technically accept any JavaScript `number` values — including `NaN`, `Infinity`, or
+    `-Infinity`. When accessed directly using `coords`, these values are returned exactly as provided. For normalized and CSS-safe
+    output, use the `toArray()` method instead. It converts special numeric values according to CSS conventions:
+        - `NaN` → treated as the CSS keyword `none` (converted to 0)
+        - `Infinity` → treated as `calc(infinity)` (converted to the maximum representable value in the model)
+        - `-Infinity` → treated as `calc(-infinity)` (converted to the minimum representable value in the model)
+
+    - If no `coords` are provided, Saturon initializes the color with all zero channel values. This ensures a valid color object (e.g., black for `rgb`, or the zero-point for other models). This is useful for placeholders, programmatically generating colors, or avoiding `null`/`undefined` checks.
+
+</Callout>
+
+## Static `Color.from()` [#from]
+
+The `Color.from()` static method creates a `Color` instance by parsing a CSS color string. It supports the full CSS Color Module Level 5 `<color>` syntax, including named colors, hex, `rgb`, `hsl`, `hwb`, `lab`, `lch`, `oklab`, `oklch`, `color-mix()`, and more. The method includes specific TypeScript overloads for common formats to ensure type safety.
+
+### Syntax
+
+```ts
+static from(color: NamedColor): Color<"rgb">;
+static from(color: `#${string}`): Color<"rgb">;
+static from(color: `rgb(${string})` | `rgba(${string})`): Color<"rgb">;
+static from(color: `hsl(${string})` | `hsla(${string})`): Color<"hsl">;
+static from(color: `hwb(${string})`): Color<"hwb">;
+static from(color: `lab(${string})`): Color<"lab">;
+static from(color: `lch(${string})`): Color<"lch">;
+static from(color: `oklab(${string})`): Color<"oklab">;
+static from(color: `oklch(${string})`): Color<"oklch">;
+static from<T extends ColorModel = ColorModel>(color: string): Color<T>;
+```
+
+- **`color`**: A string representing a CSS color (e.g., `"red"`, `"#ff5733"`, `"hsl(50 100% 30%)"`, `"color-mix(in hsl, red, blue)"`).
+- **Returns**: A new `Color` instance in the appropriate model (e.g., `"rgb"` for named colors and hex, `"hsl"` for `hsl()`).
+- **Throws**: If the input string is invalid or unsupported.
+
+### Behavior
+
+- Cleans the input string (e.g., trims whitespace, normalizes case).
+- Iterates through the `colorTypes` registry, using each type's `isValid()` method to identify the color format.
+- If valid, parses the string using the type's `parse()` method to get coordinates.
+- For `<color-function>` types (e.g., `hsl`, `oklab`) in `colorModels`, creates a `Color` instance in that model with the parsed coordinates.
+- For other `<color>` types (e.g., `hex-color`, `color-mix`), converts coordinates to the type's bridge space (e.g., `rgb`, `xyz-d65`) using `toBridge()` and creates a `Color` instance in the bridge model.
+- Throws an error if no matching type is found.
+
+### Example
+
+```js
+import { Color } from "saturon";
+
+// Named color
+const namedColor = Color.from("red");
+console.log(namedColor.toString("rgb")); // rgb(255 0 0)
+console.log(namedColor.model); // rgb
+
+// Hex color
+const hexColor = Color.from("#ff5733");
+console.log(hexColor.to("hsl")); // hsl(11 100 60)
+console.log(hexColor.coords); // [255, 87, 51, 1]
+
+// HSL color
+const hslColor = Color.from("hwb(50 10% 30%)");
+console.log(hslColor.toObject()); // { h: 50, w: 10, b: 30, alpha: 1 }
+console.log(hslColor.toArray); // [50, 10, 30, 1]
+```
+
+## Static `Color.type()` [#type]
+
+The `Color.type()` static method identifies the type of a given CSS color string, returning the corresponding `ColorType` (e.g., `"hex-color"`, `"rgb"`, `"color-mix"`) from the `colorTypes` registry, or `undefined` if unrecognized. The method supports a `strict` mode to ensure the string not only matches a type's syntax but also produces a valid `Color` instance through round-trip conversion.
+
+### Syntax
+
+```ts
+static type(color: string, strict = false): ColorType | undefined
+```
+
+- **`color`**: A string representing a CSS color (e.g., `"lime"`, `"#ff5733"`, `"hsl(50 100% 30%)"`).
+- **`strict`**: Optional boolean (default `false`). If `true`, validates that the string can be parsed and converted to a valid `Color` instance in the type's bridge space.
+- **Returns**: The `ColorType` string (e.g., `"hex-color"`, `"rgb"`, `"color-mix"`) if recognized, or `undefined` if the string is invalid or unsupported.
+- **Throws**: Does not throw; returns `undefined` for invalid inputs in strict mode.
+
+### Behavior
+
+- Cleans the input string (e.g., trims whitespace, normalizes case).
+- Iterates through the `colorTypes` registry, using each type's `isValid()` method to check if the string matches.
+- If a match is found and `strict` is `false`, returns the type immediately.
+- In `strict` mode, parses the string, and attempts to create a `Color` instance to ensure validity. Returns `undefined` if parsing or conversion fails.
+- Returns `undefined` if no type matches.
+
+### Example
+
+```js
+import { Color } from "saturon";
+
+// Identify basic color types
+console.log(Color.type("#ff5733")); // hex-color
+console.log(Color.type("red")); // named-color
+console.log(Color.type("hsl(50 100% 30%)")); // hsl
+console.log(Color.type("color-mix(in hsl, red, blue)")); // color-mix
+
+// Strict mode validation
+console.log(Color.type("hsl(50 100% 30%)", true)); // hsl
+console.log(Color.type("hsl(invalid)", true)); // undefined
+
+// Invalid input
+console.log(Color.type("invalid")); // undefined
+```
+
+## Static `Color.isValid()` [#isvalid]
+
+The `Color.isValid()` static method checks whether a given color string is valid according to the CSS Color Module Level 5 grammar, optionally for a specific `ColorType`. It's a lightweight way to validate inputs before creating `Color` instances.
+
+### Syntax
+
+```ts
+static isValid(color: string, type?: ColorType | string): boolean
+```
+
+- **`color`**: A string representing a CSS color (e.g., `"red"`, `"rgb(255 87 51)"`, `"color-mix(in oklch, red, blue)"`).
+- **`type`**: Optional string specifying a `ColorType` (e.g., `"rgb"`, `"hex-color"`, `"rec2020"`) to validate against. If omitted, checks against all types in `colorTypes`.
+- **Returns**: `true` if the color string is valid for the specified type (or any type if `type` is omitted), `false` otherwise.
+- **Throws**: Does not throw; returns `false` for invalid inputs.
+
+### Behavior
+
+- If `type` is omitted, delegates to `Color.from()`, returning `true` if a `Color` instance can be created successfully.
+- If `type` is specified, cleans the input string (trims and lowercases), uses `colorTypes[type].isValid()` to check syntax, then parses the string, and attempts to create a `Color` instance. Returns `true` if the instance is valid.
+- Returns `false` if parsing, conversion, or instantiation fails.
+
+### Example
+
+```js
+import { Color } from "saturon";
+
+// Validate any color type
+console.log(Color.isValid("red")); // true
+console.log(Color.isValid("#ff5733")); // true
+console.log(Color.isValid("hsl(50 100% 30%)")); // true
+console.log(Color.isValid("invalid")); // false
+
+// Validate specific type
+console.log(Color.isValid("rgb(255 87 51)", "rgb")); // true
+console.log(Color.isValid("rgb(255 87 51)", "hsl")); // false
+console.log(Color.isValid("hsl(invalid)", "hsl")); // false
+```
+
+## Static `Color.random()` [#random]
+
+The `Color.random()` static method generates a random `Color` instance, ideal for generative design, testing, or creating dynamic color palettes. It allows fine-grained control over the randomness through the `RandomOptions` configuration, enabling you to specify the color model, constrain channel values, apply biases, or use Gaussian distributions for controlled variation. The method leverages the `colorModels` registry to ensure valid component ranges and model-specific behavior.
+
+### Syntax
+
+```ts
+static random<M extends ColorModel = ColorModel>(options: RandomOptions<M> = {}): Color<M>
+```
+
+- **`options`**: An optional object configuring the random color generation:
+    - **`model`**: The color model (e.g., `"rgb"`, `"hsl"`, `"oklch"`). Defaults to a random model from `colorModels` if not specified.
+    - **`limits`**: An object specifying `[min, max]` ranges for each component (e.g., `{ l: [0.4, 0.6] }` for `oklch` lightness).
+    - **`bias`**: An object mapping components to easing functions (e.g., `{ l: (x: number) => x * x }`) to bias random values.
+    - **`base`**: An object setting base values for components when using Gaussian randomization (e.g., `{ h: 120 }` for hue).
+    - **`deviation`**: An object specifying standard deviations for Gaussian randomization (e.g., `{ h: 10 }` for hue variation).
+- **Returns**: A new `Color` instance with randomly generated coordinates in the specified or randomly selected model.
+- **Throws**: If an invalid component is specified in `options` (e.g., `h` for `rgb`).
+
+### Behavior
+
+- Selects a random model from `colorModels` if `options.model` is not provided.
+- Retrieves the `components` definition from `colorModels[model]` and creates a set of valid component names, including `alpha`.
+- Validates components in `limits`, `bias`, `base`, and `deviation` against the model's components, throwing an error for invalid components.
+- Generates random values for each component based on the model's `ComponentDefinition`:
+    - For angles (e.g., hue in `hsl`), uses `[0, 360]`.
+    - For percentages (e.g., saturation in `hsl`), uses `[0, 100]`.
+    - For custom ranges (e.g., `r` in `rgb`), uses the defined `[min, max]`.
+- If `base` and `deviation` are provided, uses Gaussian randomization (Box-Muller transform) for natural variation around the base value.
+- Applies `limits` to constrain ranges (e.g., `l: [0.4, 0.6]` for `oklch` lightness).
+- Applies `bias` functions to skew randomness (e.g., favoring lighter colors).
+- Clamps values to model-specific ranges and creates a new `Color` instance with the generated coordinates.
+
+### Example
+
+```js
+import { Color } from "saturon";
+
+// Generate a random color (any model)
+const randomColor = Color.random();
+console.log(randomColor.to("rgb")); // e.g., rgb(123 45 89)
+
+// Specify a model
+const hslColor = Color.random({ model: "hsl" });
+console.log(hslColor.toString()); // e.g., hsl(200 75 50)
+
+// Constrain ranges with limits
+const constrainedColor = Color.random({
+    model: "oklch",
+    limits: { l: [0.4, 0.6], c: [0, 0.2], h: [200, 240] },
+});
+console.log(constrainedColor.to("rgb")); // e.g., rgb(100 120 140)
+
+// Apply bias for lighter colors
+const biasedColor = Color.random({
+    model: "hsl",
+    bias: { l: (x) => x * x }, // Favors higher lightness
+});
+console.log(biasedColor.toString()); // e.g., hsl(150 80 75)
+
+// Gaussian randomization around a base hue
+const gaussianColor = Color.random({
+    model: "hsl",
+    base: { h: 120 },
+    deviation: { h: 10 },
+});
+console.log(gaussianColor.toString()); // e.g., hsl(115 100 50)
+```
+
+## Instance `Color.to()` [#to]
+
+The `to()` method converts the current `Color` instance to a specified output format, returning a CSS color string. The method allows customization through `FormattingOptions`, such as legacy syntax, gamut mapping, precision, and unit inclusion, making it ideal for generating CSS-compatible strings for display, styling, or logging.
+
+### Syntax
+
+```ts
+to(type: OutputType | string, options?: FormattingOptions): string
+```
+
+- **`type`**: A string specifying the target color format (e.g., `"rgb"`, `"hsl"`, `"hex-color"`, `"color-mix"`). Case-insensitive, but must match a type in `colorTypes`.
+- **`options`**: An optional object configuring the output format:
+    - **`legacy`**: Boolean (default `false`). If `true`, uses legacy syntax for formats like `rgb()` or `hsl()` (e.g., `hsla(240, 100%, 50%, 0.5)`).
+    - **`fit`**: String (default `"clip"`). Specifies the gamut mapping method (`"clip"`, `"chroma-reduction"`, `"css-gamut-map"`) for out-of-gamut colors. Can be changed in the default configuration via `configure` (see [API: config](./config)).
+    - **`precision`**: Number, `null` or `undefined` (default `undefined`). Sets the decimal precision for numeric values in the output string. If `null`, uses full precision without rounding. If `undefined`, uses the type's default precision.
+    - **`units`**: Boolean (default `false`). If `true`, includes the optional unit suffixes (e.g., `deg` for angles, `%` for percentages).
+- **Returns**: A string representing the color in the specified format.
+- **Throws**:
+    - If `type` is not in `colorTypes`.
+    - If `type` lacks a `fromBridge` or `format` function (e.g., `currentColor`).
+
+### Behavior
+
+- Normalizes the `type` to lowercase for case-insensitive matching.
+- Retrieves the `ColorConverter` for the target `type` from `colorTypes`.
+- If the target `type` matches the instance's current `model`, formats the current coordinates directly using the type's `format()` function.
+- If `type` is a color model (in `colorModels`), converts the instance to that model using `in()` and formats the resulting coordinates.
+- For other types (e.g., `hex-color`, `color-mix`), converts to the type's bridge space using `in()`, applies `fromBridge()` to get native coordinates, and formats the result.
+- Returns the formatted string according to the specified `options`.
+
+### Example
+
+```js
+import { Color } from "saturon";
+
+// Convert to different formats
+const color = Color.from("hsl(50 100% 30%)");
+console.log(color.to("rgb")); // rgb(153 128 0)
+console.log(color.to("hex-color")); // #998000
+
+// Use legacy syntax
+console.log(color.to("rgb", { legacy: true })); // rgb(153, 128, 0)
+
+// Constrain to sRGB gamut with different fit methods
+const wideColor = Color.from("color(display-p3 1 0 0)");
+console.log(wideColor.to("rgb", { fit: "clip" })); // rgb(255 0 0)
+console.log(wideColor.to("rgb", { fit: "css-gamut-map" })); // rgb(255 0 0)
+
+// Include units and custom precision
+console.log(color.to("hsl", { units: true, precision: 2 })); // hsl(50deg 100% 30%)
+```
+
+## Instance `Color.in()` [#in]
+
+The `in()` method converts the current `Color` instance to a specified color model, returning a new `Color` instance in that model. It's essential for manipulating colors in a specific color space (e.g., `hsl` for hue adjustments, `oklab` for perceptual uniformity) before using methods like `with()` or `toObject()`. The method uses a graph-based pathfinding algorithm to find the shortest conversion path through bridge spaces.
+
+### Syntax
+
+```ts
+in<T extends ColorModel = ColorModel>(model: T | string): Color<T>
+```
+
+- **`model`**: A string specifying the target color model (e.g., `"rgb"`, `"oklab"`, `"xyz-d65"`). Case-insensitive, but must exist in the `colorModels` registry.
+- **Returns**: A new `Color` instance with coordinates converted to the specified model, preserving the alpha channel.
+- **Throws**:
+    - If the target `model` is not in `colorModels`.
+    - If no conversion path exists between the current and target models.
+    - If no valid conversion is found between intermediate models.
+
+### Behavior
+
+- Normalizes the `model` string (trims and lowercases).
+- If the target model matches the current model, returns a new `Color` instance with a copy of the current coordinates for immutability.
+- Builds a conversion graph (cached in `cache.get("graph")`) from `colorModels`, mapping models to their bridge spaces.
+- Uses a breadth-first search (BFS) to find the shortest path from the current model to the target model, caching the path in `cache.get("paths")` for performance.
+- Traverses the path, applying `toBridge()` or `fromBridge()` from `colorModels` to convert coordinates between models via bridge spaces.
+- Preserves the alpha channel (defaults to 1 if undefined) in the resulting `Color` instance.
+
+### Example
+
+```js
+import { Color } from "saturon";
+
+// Convert from RGB to HSL
+const rgbColor = new Color("rgb", [255, 87, 51]);
+const hslColor = rgbColor.in("hsl");
+console.log(hslColor.toString()); // hsl(15 100 60)
+console.log(hslColor.with({ l: (l) => l / 2 })); // [15, 100, 30, 1]
+
+// Convert to OKLCH
+const oklchColor = rgbColor.in("oklch");
+console.log(oklchColor.toObject()); // { l: 0.627, c: 0.257, h: 29.2, alpha: 1 }
+console.log(oklchColor.toArray()); // [0.627, 0.257, 29.2, 1]
+```
+
+## Instance `Color.toString()` [#tostring]
+
+The `toString()` method formats the current `Color` instance as a CSS color string in its current model. It directly uses the `format` function from the `colorTypes` registry for the instance's model, making it a lightweight alternative to `to()` when no model conversion is needed. This method is ideal for quick string output in the instance's native model, with customizable formatting options like legacy syntax or precision.
+
+### Syntax
+
+```ts
+toString(options: FormattingOptions = {}): string
+```
+
+- **`options`**: An optional object configuring the output format:
+    - **`legacy`**: Boolean (default `false`). If `true`, uses legacy syntax for formats like `rgb()` or `hsl()` (e.g., `hsla(240, 100%, 50%, 0.5)`).
+    - **`fit`**: String (default `"clip"`). Specifies the gamut mapping method (`"clip"`, `"chroma-reduction"`, `"css-gamut-map"`) for out-of-gamut colors. Can be changed in the default configuration via `configure` (see [API: config](./config)).
+    - **`precision`**: Number, `null` or `undefined` (default `undefined`). Sets the decimal precision for numeric values in the output string. If `null`, uses full precision without rounding. If `undefined`, uses the type's default precision.
+    - **`units`**: Boolean (default `false`). If `true`, includes the optional unit suffixes (e.g., `deg` for angles, `%` for percentages).
+- **Returns**: A string representing the color in the instance's current model.
+- **Throws**: Does not throw; assumes the model has a defined `format` function in `colorTypes`.
+
+### Behavior
+
+- Retrieves the `format` function from `colorTypes[this.model]`.
+- Applies the `format` function to the instance's `coords`, passing the provided `options` (e.g., `legacy`, `fit`, `precision`, `units`).
+- Returns the formatted string in the current model.
+
+### Example
+
+```js
+import { Color } from "saturon";
+
+// Format in current model (HSL)
+const hslColor = Color.from("hsl(50 100% 30%)");
+console.log(hslColor.toString()); // hsl(50 100 30)
+console.log(hslColor.toString({ legacy: true })); // hsl(50, 100%, 30%)
+console.log(hslColor.toString({ units: true, precision: 2 })); // hsl(50deg 100% 30%)
+```
+
+## Instance `Color.toObject()` [#toobject]
+
+The `toObject()` method converts the `Color` instance to an object representation, mapping each component (e.g., `r`, `g`, `b` for `rgb`) and the alpha channel to their numeric values. It's useful for accessing structured component values for data processing or serialization, respecting the instance's current model.
+
+### Syntax
+
+```ts
+toObject(options: GetOptions = {}): { [key in Component<M> | "alpha"]: number }
+```
+
+- **`options`**: An optional object configuring the coordinate retrieval:
+    - **`fit`**: String (default `"none"`). Specifies the gamut mapping method (`"none"`, `"clip"`, `"chroma-reduction"`, `"css-gamut-map"`) for out-of-gamut colors.
+    - **`precision`**: Number, `null` or `undefined` (default `undefined`). Sets the decimal precision for numeric values in the output string. If `null`, uses full precision without rounding. If `undefined`, uses the type's default precision.
+- **Returns**: An object with keys for each component in the current model and `"alpha"`, mapped to their numeric values.
+- **Throws**: If the current model lacks defined components in `colorModels`.
+
+### Behavior
+
+- Retrieves the `components` definition from `colorModels[model]`.
+- Creates a `fullComponents` object by adding an `alpha` component (`index: 3`, `value: [0, 1]`, `precision: 3`).
+- Calls `toArray(options)` to get normalized or fitted coordinates.
+- Maps each component's `index` to its corresponding value in the coordinates array, including `alpha`.
+- Returns an object with component names as keys and numeric values.
+
+### Example
+
+```js
+import { Color } from "saturon";
+
+const rgbColor = Color.from("rgb(92 7 151)");
+console.log(rgbColor.toObject()); // { r: 92, g: 7, b: 151, alpha: 1 }
+```
+
+<Callout title="Note">
+    `toObject()` internally relies on `toArray()` to retrieve component values. This means it inherits `toArray()`'s
+    robust handling of special numeric cases, such as `NaN` and `Infinity`, ensuring consistent and reliable output.
+</Callout>
+
+## Instance `Color.toArray()` [#toarray]
+
+The `toArray()` method converts the `Color` instance to an array of numeric coordinates, optionally normalizing and fitting values to the model's gamut. It's useful for accessing raw coordinate values for calculations or external systems, with robust handling of edge cases like `NaN` or `Infinity`.
+
+### Syntax
+
+```ts
+toArray(options: GetOptions = {}): number[]
+```
+
+- **`options`**: An optional object configuring the coordinate retrieval:
+    - **`fit`**: String (default `"none"`). Specifies the gamut mapping method (`"none"`, `"clip"`, `"chroma-reduction"`, `"css-gamut-map"`) for out-of-gamut colors.
+    - **`precision`**: Number, `null` or `undefined` (default `undefined`). Sets the decimal precision for numeric values in the output string. If `null`, uses full precision without rounding. If `undefined`, uses the type's default precision.
+- **Returns**: An array of 4 numbers: the first 3 are the model's component values (e.g., `[r, g, b]` for `rgb`), and the last is the alpha value.
+- **Throws**: If the current model lacks defined components in `colorModels` (e.g., `Model rgb does not have defined components`).
+
+### Behavior
+
+- Retrieves the `components` definition from `colorModels[model]`.
+- Creates a `defs` object by adding an `alpha` component (`index: 3`, `value: [0, 1]`, `precision: 3`).
+- Normalizes the first 3 coordinates based on component definitions:
+    - For angles (e.g., hue in `hsl`), uses `[0, 360]`.
+    - For percentages (e.g., saturation in `hsl`), uses `[0, 100]`.
+    - For custom ranges (e.g., `r` in `rgb`), uses the defined `[min, max]`.
+    - Handles edge cases: `NaN` → `0`, `Infinity` → `max`, `-Infinity` → `min`.
+- If `fit` is not `"none"`, applies gamut mapping to the first 3 coordinates using the internal `fit()` function and the model's `targetGamut`.
+- Returns an array of 4 numbers: the normalized or fitted coordinates plus the alpha value.
+
+### Example
+
+```js
+import { Color } from "saturon";
+
+const rgbColor = Color.from("rgb(25 187 71)");
+console.log(rgbColor.toArray()); // [55, 187, 51, 1]
+```
+
+## Instance `Color.with()` [#with]
+
+The `with()` method creates a new `Color` instance with updated or replaced component values in the current model, offering flexible ways to modify colors. It supports direct component updates, functional updates for dynamic calculations, bulk updates via functions, and direct or functional coordinate array replacements. This method is ideal for adjusting specific components (e.g., changing hue in `hsl`) or applying transformations (e.g., desaturating a color) while preserving immutability.
+
+### Syntax
+
+```ts
+with(
+  values:
+    | Partial<{ [K in Component<M> | "alpha"]: number | ((prev: number) => number) }>
+    | ((components: { [K in Component<M> | "alpha"]: number }) =>
+        | Partial<{ [K in Component<M> | "alpha"]: number }>
+        | (number | undefined)[])
+    | (number | undefined)[]
+): Color<M>
+```
+
+- **`values`**: One of the following:
+    - **Object**: A partial object with component names (e.g., `r`, `g`, `b` for `rgb`) or `alpha`, mapped to numbers or updater functions (e.g., `{ r: 128 }`, `{ r: (r) => r * 2 }`).
+    - **Function**: A function receiving an object of current component values and returning either a partial object of updated values or an array of new coordinates (e.g., `({ r, g, b }) => ({ r: r * 0.5 })`, `({ r, g, b }) => [r, g, b, 1]`).
+    - **Array**: An array of 3 or 4 numbers (or `undefined`) to replace the coordinates directly (e.g., `[255, 87, 51, 1]`).
+- **Returns**: A new `Color` instance in the same model with updated coordinates.
+- **Throws**: If the current model lacks defined components in `colorModels`.
+
+### Behavior
+
+- Retrieves the `components` definition from `colorModels[model]` and adds an `alpha` component (`index: 3`, `value: [0, 1]`, `precision: 3`).
+- Gets the current coordinates using `toArray()` for reference.
+- Handles the `values` input based on its type:
+    - **Function**: Calls the function with an object of current component values and processes the result as either a partial object or an array.
+    - **Array**: Normalizes each coordinate using model-specific ranges (e.g., `[0, 360]` for angles, `[0, 100]` for percentages, `[min, max]` for custom ranges). Handles edge cases: `NaN` → `0`, `Infinity` → `max`, `-Infinity` → `min`, `undefined` → current value. Preserves the current alpha if not specified.
+    - **Object**: Updates specified components, applying numbers directly or evaluating updater functions against current values. Normalizes values using model-specific ranges and handles edge cases similarly.
+- Creates a new `Color` instance with the updated coordinates, preserving the current alpha if not updated.
+
+### Example
+
+```js
+import { Color } from "saturon";
+
+// Direct component update (object)
+const rgbColor = Color.from("rgb(255 87 51)");
+const updatedRgb = rgbColor.with({ g: 128 });
+console.log(updatedRgb.to("rgb")); // rgb(255 128 51)
+
+// Functional component update
+const brighterRgb = rgbColor.with({ r: (r) => r * 0.8 });
+console.log(brighterRgb.toString()); // rgb(204 87 51)
+
+// Functional bulk update (object)
+const hslColor = Color.from("hsl(50 100% 30%)");
+const adjustedHsl = hslColor.with(({ h, s, l }) => ({
+    h: h + 10,
+    s: s * (l / 100),
+}));
+console.log(adjustedHsl.toString()); // hsl(60 30 30)
+
+// Direct coordinate array replacement
+const newRgb = rgbColor.with([, 150, 200]);
+console.log(newRgb.toString()); // rgb(255 150 200)
+
+// Functional coordinate update (array)
+const mutedRgb = rgbColor.with(({ r, g, b }) => [r * 0.5, g * 0.5, b * 0.5, 1]);
+console.log(mutedRgb.toString()); // rgb(128 44 26)
+
+// Handle edge cases
+const edgeCase = rgbColor.with([NaN, Infinity, -Infinity]);
+console.log(edgeCase.toString()); // rgb(0 255 0)
+```
+
+## Instance `Color.mix()` [#mix]
+
+The `mix()` method creates a new `Color` instance by interpolating between the current color and another color, specified as a `Color` instance or a CSS color string. It supports customizable interpolation through `MixOptions`, including hue interpolation methods, easing functions, blending amount, and gamma correction. This method is ideal for creating gradients, transitions, or blended colors in the current model, with robust handling of alpha channels and perceptual uniformity.
+
+### Syntax
+
+```ts
+mix(other: Color<ColorModel> | string, options: MixOptions = {}): Color<M>
+```
+
+- **`other`**: The color to mix with, either a `Color` instance or a CSS color string.
+- **`options`**: An optional object configuring the mixing process:
+    - **`hue`**: String (default `"shorter"`). Specifies the hue interpolation method for models with a hue component (e.g., `hsl`, `oklch`):
+        - `"shorter"`: Interpolates along the shortest arc on the color wheel.
+        - `"longer"`: Interpolates along the longer arc.
+        - `"increasing"`: Interpolates toward increasing hue values (e.g., adds 360° if needed).
+        - `"decreasing"`: Interpolates toward decreasing hue values (e.g., subtracts 360° if needed).
+    - **`amount`**: Number (default `0.5`). The interpolation factor between 0 (current color) and 1 (other color), clamped to `[0, 1]`.
+    - **`easing`**: String or function (default `"linear"`). Specifies an easing function (e.g., `"linear"`, `"ease-out-cubic"`) from the `EASINGS` registry or a custom function that maps `[0, 1]` to `[0, 1]`.
+    - **`gamma`**: Number (default `1.0`). Applies gamma correction to the eased interpolation factor for non-linear blending.
+- **Returns**: A new `Color` instance in the current model representing the mixed color.
+- **Throws**:
+    - If the current model lacks defined components in `colorModels`).
+    - If an invalid `hue` interpolation method is provided.
+
+### Behavior
+
+- Retrieves the `components` definition from `colorModels[model]` and adds an `alpha` component (`index: 3`, `value: [0, 1]`, `precision: 3`).
+- Gets the current coordinates using `toArray()` and converts the `other` color to the current model using `in()` (parsing strings via `Color.from()`).
+- Clamps `amount` to `[0, 1]` and applies the easing function (from `EASINGS` or custom) to compute the interpolation factor `tt`, adjusted by `gamma` via `Math.pow(ease(t), 1 / gamma)`.
+- Handles hue interpolation for components marked as `angle` (e.g., `h` in `hsl`) using the specified `hue` method (`shorter`, `longer`, `increasing`, `decreasing`).
+- For non-hue components, performs linear interpolation: `start + (end - start) * tt`.
+- If either color has an alpha less than 1, applies premultiplied alpha blending:
+    - Multiplies each component by its respective alpha before interpolation.
+    - Interpolates the premultiplied values and alpha separately.
+    - Divides the mixed components by the mixed alpha (if non-zero) to un-premultiply.
+- Returns a new `Color` instance with the mixed coordinates and alpha, preserving the current model.
+
+### Example
+
+```js
+import { Color } from "saturon";
+
+// Mix two colors in HSL (default shorter hue path)
+const hslColor = Color.from("hsl(50 100% 50%)");
+const mixedHsl = hslColor.mix("hsl(200 100% 50%)");
+console.log(mixedHsl.toString()); // hsl(125 100 50)
+
+// Mix with longer hue path
+const longerMix = hslColor.mix("hsl(200 100% 50%)", { hue: "longer" });
+console.log(longerMix.toString()); // hsl(305 100 50)
+
+// Mix with custom amount and easing
+const easedMix = hslColor.mix("hsl(200 100% 50%)", { amount: 0.75, easing: "ease-out-cubic" });
+console.log(easedMix.toString()); // hsl(198 100 50)
+
+// Mix with gamma correction
+const gammaMix = hslColor.mix("hsl(200 100% 50%)", { gamma: 2.2 });
+console.log(gammaMix.toString()); // hsl(159 100 50)
+
+// Mix with alpha blending
+const transparentColor = Color.from("rgba(255 0 0 / 0.5)");
+const mixedAlpha = transparentColor.mix("rgba(0 255 0 / 0.7)");
+console.log(mixedAlpha.toString()); // rgb(106 149 0 / 0.6)
+
+// Mix with Color instance
+const otherColor = Color.from("rgb(0 255 0)");
+const rgbMix = transparentColor.mix(otherColor, { amount: 0.3 });
+console.log(rgbMix.toString()); // rgb(137 118 0 / 0.65)
+```
+
+## Instance `Color.within()` [#within]
+
+The `within()` method fits the current `Color` instance into a specified color space's gamut, returning a new `Color` instance in the original model. It ensures colors are displayable within the target gamut (e.g., `srgb`, `display-p3`) using the specified fitting method, which is useful for rendering colors on devices with limited color ranges or ensuring compatibility with CSS.
+
+### Syntax
+
+```ts
+within(gamut: ColorSpace, method: FitMethod = "clip"): Color<M>
+```
+
+- **`gamut`**: A string specifying the target color space (e.g., `"srgb"`, `"display-p3"`, `"rec2020"`). Must exist in the `colorSpaces` registry.
+- **`method`**: A string specifying the gamut mapping method (default `"clip"`). Options include:
+    - `"clip"`: Clamps out-of-gamut values to the nearest valid value.
+    - `"chroma-reduction"`: Reduces chroma to fit within the gamut while preserving hue and lightness.
+    - `"css-gamut-map"`: Applies the CSS Color Module Level 4 gamut mapping algorithm.
+- **Returns**: A new `Color` instance in the current model with coordinates fitted to the specified gamut.
+- **Throws**: If the `gamut` is not in `colorSpaces`.
+
+### Behavior
+
+- Normalizes the `gamut` string (trims and lowercases) and validates it against the `colorSpaces` registry.
+- Converts the color to the target gamut's model using `in(gamut)` and retrieves fitted coordinates via `toArray({ fit: method })`.
+- Converts the fitted coordinates back to the original model using `in(this.model)`.
+- Returns a new `Color` instance with the fitted coordinates, preserving the original model.
+
+### Example
+
+```js
+import { Color } from "saturon";
+
+// Fit a wide-gamut color to sRGB
+const wideColor = Color.from("color(display-p3 1 0 0)");
+const srgbColor = wideColor.within("srgb", "clip");
+console.log(srgbColor.to("rgb")); // rgb(255 0 0)
+```
+
+## Instance `Color.contrast()` [#contrast]
+
+The `contrast()` method calculates the WCAG 2.1 contrast ratio between the current `Color` instance and another color, specified as a `Color` instance or CSS color string. The ratio, ranging from 1 to 21, indicates the perceptual difference between two colors, useful for ensuring text accessibility in UI design. Higher ratios indicate better readability.
+
+### Syntax
+
+```ts
+contrast(other: Color<ColorModel> | string): number
+```
+
+- **`other`**: The color to compare against, either a `Color` instance or a CSS color string.
+- **Returns**: A number representing the WCAG 2.1 contrast ratio, from 1 (no contrast) to 21 (maximum contrast).
+- **Throws**: None; invalid inputs are handled by `Color.from()`.
+
+### Behavior
+
+- Converts the `other` color to a `Color` instance using `Color.from()` if a string is provided.
+- Converts both colors to the `xyz-d65` model using `in("xyz-d65")` to extract their relative luminance (`Y` value).
+- Computes the contrast ratio as `(max(L1, L2) + 0.05) / (min(L1, L2) + 0.05)`, per WCAG 2.1 specifications.
+- Returns the ratio, which can be used to assess accessibility (e.g., ≥4.5 for normal text, ≥3 for large text).
+
+### Example
+
+```js
+import { Color } from "saturon";
+
+// Calculate contrast between white and black
+const white = Color.from("white");
+const black = Color.from("black");
+console.log(white.contrast(black)); // 21 (maximum contrast)
+
+// Contrast for text accessibility
+const textColor = Color.from("rgb(50 50 50)");
+const bgColor = Color.from("#ffffff");
+console.log(textColor.contrast(bgColor)); // e.g., 12.8 (accessible for normal text)
+
+// Contrast with another Color instance
+const blue = Color.from("blue");
+console.log(textColor.contrast(blue)); // e.g., 1.5 (not accessible for normal text)
+
+// Contrast with a color string
+console.log(white.contrast("red")); // e.g., 4 (below threshold for normal text)
+```
+
+<Callout type="warn" title="Note on the WCAG contrast algorithm">
+    The [W3C CSS Color Level 5 specification](https://www.w3.org/TR/css-color-5/#contrast-color) cautions against
+    relying solely on the WCAG 2.1 §1.4.3 contrast ratio algorithm when determining whether to use light or dark colors.
+    This is because the WCAG 2.1 method has several known limitations — like poor hue handling and perceptual
+    differences. That said, the `contrast()` method remains suitable for most accessibility use cases, especially for
+    verifying compliance with [WCAG 2.1 §1.4.3 (Contrast — Minimum)](https://www.w3.org/TR/WCAG21/#contrast-minimum)
+    requirements (e.g., AA-level contrast for normal or large text), which are still widely referenced in accessibility
+    standards and legal guidelines.
+</Callout>
+
+## Instance `Color.deltaEOK()` [#deltaeok]
+
+The `deltaEOK()` method calculates the color difference (ΔEOK) between the current `Color` instance and another color, using Euclidean distance in the OKLAB color space. This method leverages OKLAB's perceptual uniformity to provide a straightforward, reliable measure of color similarity, where smaller values indicate more similar colors. The result is scaled to approximate a Just Noticeable Difference (JND) of ~2, making it useful for comparing colors in design or quality control.
+
+### Syntax
+
+```ts
+deltaEOK(other: Color<ColorModel> | string): number
+```
+
+- **`other`**: The color to compare against, either a `Color` instance or a CSS color string.
+- **Returns**: A non-negative number representing the ΔEOK value, scaled by 100 to align with OKLAB's lightness range (0-1) and approximate a JND of ~2.
+- **Throws**: None; invalid inputs are handled by `Color.from()`.
+
+### Behavior
+
+- Converts both the current color and `other` to the `oklab` model using `in("oklab")`.
+- Extracts the `L`, `a`, and `b` coordinates from both colors' `toArray()` results.
+- Computes the Euclidean distance: `sqrt((L1 - L2)^2 + (a1 - a2)^2 + (b1 - b2)^2)`.
+- Scales the distance by 100 to normalize it relative to OKLAB's lightness range and align with JND expectations.
+- Returns the scaled ΔEOK value.
+
+### Example
+
+```js
+import { Color } from "saturon";
+
+// Compare similar colors
+const color1 = Color.from("rgb(255 87 51)");
+const color2 = Color.from("rgb(255 100 60)");
+console.log(color1.deltaEOK(color2)); // e.g., 2.1 (small difference)
+
+// Compare dissimilar colors
+const color3 = Color.from("blue");
+console.log(color1.deltaEOK(color3)); // e.g., 52.8 (large difference)
+```
+
+## Instance `Color.deltaE76()` [#deltae76]
+
+The `deltaE76()` method calculates the color difference (ΔE76) between the current `Color` instance and another color, using the CIE76 formula (Euclidean distance in LAB color space). This is a simple, older method for measuring color similarity, where smaller values indicate more similar colors. It's less perceptually accurate than newer methods but widely used for its simplicity.
+
+### Syntax
+
+```ts
+deltaE76(other: Color<ColorModel> | string): number
+```
+
+- **`other`**: The color to compare against, either a `Color` instance or a CSS color string.
+- **Returns**: A non-negative number representing the ΔE76 value.
+- **Throws**: None; invalid inputs are handled by `Color.from()`.
+
+### Behavior
+
+- Converts both the current color and `other` to the `lab` model using `in("lab")`.
+- Extracts the `L`, `a`, and `b` coordinates from both colors' `toArray()` results.
+- Computes the Euclidean distance: `sqrt((L1 - L2)^2 + (a1 - a2)^2 + (b1 - b2)^2)`.
+- Returns the ΔE76 value.
+
+### Example
+
+```js
+import { Color } from "saturon";
+
+// Compare similar colors
+const color1 = Color.from("rgb(255 87 51)");
+const color2 = Color.from("rgb(255 100 60)");
+console.log(color1.deltaE76(color2)); // e.g., 5.8 (small difference)
+
+// Compare dissimilar colors
+const color3 = Color.from("blue");
+console.log(color1.deltaE76(color3)); // e.g., 170.9 (large difference)
+```
+
+## Instance `Color.deltaE94()` [#deltae94]
+
+The `deltaE94()` method calculates the color difference (ΔE94) between the current `Color` instance and another color, using the CIE94 formula. This method improves on CIE76 by applying weighting factors for chroma and hue, offering better perceptual accuracy for color similarity comparisons.
+
+### Syntax
+
+```ts
+deltaE94(other: Color<ColorModel> | string): number
+```
+
+- **`other`**: The color to compare against, either a `Color` instance or a CSS color string.
+- **Returns**: A non-negative number representing the ΔE94 value.
+- **Throws**: None; invalid inputs are handled by `Color.from()`.
+
+### Behavior
+
+- Converts both the current color and `other` to the `lab` model using `in("lab")`.
+- Extracts the `L`, `a`, and `b` coordinates from both colors' `toArray()` results.
+- Computes the differences: `ΔL = L1 - L2`, `ΔA = a1 - a2`, `ΔB = b1 - b2`.
+- Calculates chroma values: `C1 = sqrt(a1^2 + b1^2)`, `C2 = sqrt(a2^2 + b2^2)`, `ΔC = C1 - C2`.
+- Computes the hue difference: `ΔH = sqrt(max(0, ΔA^2 + ΔB^2 - ΔC^2))`.
+- Applies weighting factors: `sC = 1 + 0.045 * C1`, `sH = 1 + 0.015 * C1`, with constants `kL = 1`, `kC = 1`, `kH = 1`, `K1 = 0.045`, `K2 = 0.015`.
+- Returns the ΔE94 value: `sqrt((ΔL / kL)^2 + (ΔC / (kC * sC))^2 + (ΔH / (kH * sH))^2)`.
+
+### Example
+
+```js
+import { Color } from "saturon";
+
+// Compare similar colors
+const color1 = Color.from("rgb(255 87 51)");
+const color2 = Color.from("rgb(255 100 60)");
+console.log(color1.deltaE94(color2)); // e.g., 2.4 (small difference)
+
+// Compare dissimilar colors
+const color3 = Color.from("blue");
+console.log(color1.deltaE94(color3)); // e.g., 78.4 (large difference)
+```
+
+## Instance `Color.deltaE2000()` [#deltae2000]
+
+The `deltaE2000()` method calculates the color difference (ΔE2000) between the current `Color` instance and another color, using the CIEDE2000 formula. This is the most perceptually accurate method provided, accounting for complex interactions between hue, chroma, and lightness, making it ideal for precise color comparisons in professional applications.
+
+### Syntax
+
+```ts
+deltaE2000(other: Color<ColorModel> | string): number
+```
+
+- **`other`**: The color to compare against, either a `Color` instance or a CSS color string.
+- **Returns**: A non-negative number representing the ΔE2000 value.
+- **Throws**: None; invalid inputs are handled by `Color.from()`.
+
+### Behavior
+
+- Converts both the current color and `other` to the `lab` model using `in("lab")`.
+- Extracts the `L`, `a`, and `b` coordinates from both colors' `toArray()` results.
+- Applies the CIEDE2000 formula, which includes:
+    - Chroma calculation: `C1 = sqrt(a1^2 + b1^2)`, `C2 = sqrt(a2^2 + b2^2)`.
+    - Hue angle calculation: `h1 = atan2(b1, (1 + G) * a1)`, `h2 = atan2(b2, (1 + G) * a2)`, with `G = 0.5 * (1 - sqrt(Cbar^7 / (Cbar^7 + 25^7)))`.
+    - Lightness, chroma, and hue differences: `ΔL`, `ΔC`, `ΔH`, adjusted for hue interactions.
+    - Weighting factors: `SL`, `SC`, `SH`, and `RT` for rotational hue correction, incorporating trigonometric adjustments and exponential terms.
+- Returns the ΔE2000 value: `sqrt((ΔL / SL)^2 + (ΔC / SC)^2 + (ΔH / SH)^2 + RT * (ΔC / SC) * (ΔH / SH))`.
+
+### Example
+
+```js
+import { Color } from "saturon";
+
+// Compare similar colors
+const color1 = Color.from("rgb(255 87 51)");
+const color2 = Color.from("rgb(255 100 60)");
+console.log(color1.deltaE2000(color2)); // e.g., 2.2(small difference)
+
+// Compare dissimilar colors
+const color3 = Color.from("blue");
+console.log(color1.deltaE2000(color3)); // e.g., 57.9 (large difference)
+```
+
+## Instance `Color.equals()` [#equals]
+
+The `equals()` method checks numeric equality between this `Color` instance and another color (string or instance) within a floating-point tolerance. It compares raw coordinates — either in the same model or in a common bridge space (`xyz-d65`) — making it ideal for testing, serialization, or conversion verification.
+
+### Syntax
+
+```ts
+equals(other: Color<ColorModel> | string, epsilon?: number): boolean
+```
+
+- **`other`**: A `Color` instance or CSS color string to compare.
+- **`epsilon`**: Optional tolerance (default `1e-5`). Allows small floating-point differences.
+- **Returns**: `true` if numerically equal within tolerance, `false` otherwise.
+
+### Behavior
+
+- If both colors are in the same model, compares `coords` directly.
+- If models differ, converts both to `xyz-d65` (no gamut mapping) and compares.
+- Uses `Math.abs(a - b) <= epsilon` per channel (including alpha).
+
+### Example
+
+```js
+import { Color } from "saturon";
+
+const color = Color.from("rgb(255 87 51)");
+
+console.log(color.equals("#ff5733")); // true
+console.log(color.equals("rgb(255 88 51)", 1e-3)); // false
+```
+
+<Callout type="warn" title="Not a perceptual comparison">
+The `equals()` method checks numeric equality, not visual similarity. It compares raw channel values in the underlying color space (or `xyz-d65` if different), without accounting for how humans actually perceive color differences.
+
+Use this method for:
+
+- Verifying precision in color conversions or round-trips
+- Comparing serialized or computed values
+- Writing deterministic tests
+
+If you need to compare how similar two colors look to the human eye, use one of the ΔE methods instead:
+
+- [`deltaEOK`](#deltaeok) — modern, perceptually uniform (OKLAB-based)
+- [`deltaE76`](#deltae76) — basic Euclidean LAB distance
+- [`deltaE94`](#deltae94) — improved LAB weighting
+- [`deltaE2000`](#deltae2000) — most accurate, perceptually tuned
+
+</Callout>
+
+## Instance `Color.inGamut()` [#ingamut]
+
+The `inGamut()` method determines whether the current color lies within the valid range of a specified color space (gamut), such as `srgb`, `display-p3`, or `rec2020`.
+
+### Syntax
+
+```ts
+inGamut(gamut: ColorSpace | string, epsilon?: number): boolean
+```
+
+- **`gamut`**: Target color space name (e.g., `"srgb"`, `"display-p3"`).
+- **`epsilon`**: Optional tolerance (default `1e-5`) for boundary checks.
+- **Returns**: `true` if all components are within valid ranges, `false` otherwise.
+- **Throws**: If `gamut` is not registered in `colorSpaces`.
+
+### Behavior
+
+- Normalizes `gamut` name (trim + lowercase).
+- Converts the color to the target model via `in(gamut)`.
+- Checks each component against its defined range.
+- Returns `true` if all values are within bounds (inclusive with epsilon).
+
+### Example
+
+```js
+import { Color } from "saturon";
+
+const p3Color = Color.from("color(display-p3 1 0 0)");
+const srgbSafe = Color.from("rgb(255 0 0)");
+
+console.log(p3Color.inGamut("srgb")); // false
+console.log(srgbSafe.inGamut("srgb")); // true
+console.log(p3Color.inGamut("display-p3")); // true
+
+// With tolerance
+console.log(p3Color.inGamut("srgb", 1e-6)); // false
+```

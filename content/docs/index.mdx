@@ -1,0 +1,122 @@
+---
+title: Getting Started
+icon: Rocket
+description: Introduction to Saturon, installation instructions, and basic usage examples
+---
+
+Saturon is a JavaScript color engine that's flexible, precise, and fully compatible with the [CSS Color Module Levels 4 & 5](https://www.w3.org/TR/css-color-5/). It helps developers build dynamic themes, design systems, and accessible interfaces — all with complete control over color logic and representation.
+
+What makes Saturon truly stand out is its grammar-aware color parser. It understands the entire CSS `<color>` syntax — including modern and experimental formats such as:
+
+- `color-mix()`
+- `oklab` / `oklch`
+- relative colors (e.g. `hsl(from rebeccapurple h calc(s / 2) l)`)
+- modern color spaces P3 and Rec. 2020
+
+## Installation
+
+You can install Saturon via npm (recommended) or use it directly in browsers through a CDN.
+
+### Option 1 — Using npm
+
+Ideal for Node.js, React, Vue, Svelte, or any modern JavaScript framework.
+
+```bash
+npm install saturon
+```
+
+Then import the `Color` class in your JavaScript or TypeScript file:
+
+```js
+import { Color } from "saturon";
+
+const color = Color.from("hsl(50 100% 30%)").to("rgb");
+console.log(color); // rgb(153 128 0)
+```
+
+<Callout title="Tip">
+    If you're using TypeScript, Saturon ships with full type definitions — no extra setup required.
+</Callout>
+
+### Option 2 — Using a CDN
+
+You can also load Saturon directly in the browser:
+
+<CodeBlockTabs defaultValue="unpkg">
+
+<CodeBlockTabsList>
+    <CodeBlockTabsTrigger value="unpkg">unpkg</CodeBlockTabsTrigger>
+    <CodeBlockTabsTrigger value="jsDelivr">jsDelivr</CodeBlockTabsTrigger>
+    <CodeBlockTabsTrigger value="Skypack">Skypack</CodeBlockTabsTrigger>
+</CodeBlockTabsList>
+
+<CodeBlockTab value="unpkg">
+    ```html
+    <script src="https://unpkg.com/saturon@latest/dist/index.umd.js"></script>
+    ```
+</CodeBlockTab>
+
+<CodeBlockTab value="jsDelivr">
+    ```html
+    <script src="https://cdn.jsdelivr.net/npm/saturon@latest/dist/index.umd.js"></script>
+    ```
+</CodeBlockTab>
+
+<CodeBlockTab value="Skypack">
+    ```html
+    <script type="module">import {Color} from "https://cdn.skypack.dev/saturon@latest";</script>
+    ```
+</CodeBlockTab>
+
+</CodeBlockTabs>
+
+### Usage Example
+
+Once the script is included, you can immediately use the `Color` API:
+
+<CodeBlockTabs defaultValue="unpkg">
+
+<CodeBlockTabsList>
+    <CodeBlockTabsTrigger value="unpkg">unpkg</CodeBlockTabsTrigger>
+    <CodeBlockTabsTrigger value="jsDelivr">jsDelivr</CodeBlockTabsTrigger>
+    <CodeBlockTabsTrigger value="Skypack">Skypack</CodeBlockTabsTrigger>
+</CodeBlockTabsList>
+
+<CodeBlockTab value="unpkg">
+    ```html
+    <script>
+        const {Color} = Saturon; const color = Color.from("hsl(50 100% 30%)").to("rgb"); console.log(color); // rgb(153
+        128 0)
+    </script>
+    ```
+</CodeBlockTab>
+
+<CodeBlockTab value="jsDelivr">
+    ```html
+    <script>
+        const {Color} = Saturon; const color = Color.from("hsl(50 100% 30%)").to("rgb"); console.log(color); // rgb(153
+        128 0)
+    </script>
+    ```
+</CodeBlockTab>
+
+<CodeBlockTab value="Skypack">
+    ```html
+    <script type="module">
+        import {Color} from "https://cdn.skypack.dev/saturon@latest"; const color = Color.from("hsl(50 100%
+        30%)").to("rgb"); console.log(color); // rgb(153 128 0)
+    </script>
+    ```
+</CodeBlockTab>
+
+</CodeBlockTabs>
+
+<Callout title="Note">
+    For production, replace `@latest` with a specific version (e.g. `@1.0.0`) to ensure predictable builds.
+</Callout>
+
+### What's Next?
+
+- Explore the [core API](/docs/api) to learn about the `Color` class
+- Discover the [guides and titorials](/docs/guides) to get the most out of Saturon
+- Check out [recipes](/docs/recipes) for practical examples and use cases

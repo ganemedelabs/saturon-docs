@@ -1,0 +1,90 @@
+---
+title: Creating Color Instances
+description: Learn how to create Color objects using Saturon's Color constructor, from(), and random() methods.
+---
+
+Saturon provides three primary ways to create a `Color` instance: using the `Color` constructor, the static `Color.from()` method, or the static `Color.random()` method.
+
+## `Color` Constructor
+
+The `Color` constructor allows you to create a color instance by directly specifying a color model (e.g., `hsl`, `rgb`, `oklab`) and its coordinates as an array. This is ideal when you know the exact color space and values you want to work with.
+
+**Example**:
+
+```js
+import { Color } from "saturon";
+
+// Create a color in HSL space (hue: 266°, saturation: 87%, lightness: 20%)
+const color = new Color("hsl", [266, 87, 20]);
+```
+
+The constructor takes two arguments:
+
+- `model`: A string specifying the color space (e.g., `hsl`, `rgb`, `oklab`, `lch`).
+- `coords`: An array of numbers representing the channel values (e.g., `[hue, saturation, lightness]` for HSL), with an optional alpha value from 0 to 1.
+
+<Callout title="Note">
+
+When you create a `Color` instance without specifying coordinates, Saturon initializes the color with all zero channel values.
+This ensures you always get a valid color object (e.g., black for `rgb`, or the zero-point for other models).
+
+This can be useful when:
+
+- You want a placeholder or default color before assigning values.
+- You're generating colors programmatically and need a consistent starting point.
+- You want to avoid `null` or `undefined` checks when constructing colors dynamically.
+
+Think of it like creating an empty `Date` or `Vector3(0, 0, 0)` — it's a safe, neutral starting value.
+
+See [Color Class Constructor](./api#constructor)
+
+</Callout>
+
+## `Color.from()`
+
+The `from()` static method creates a `Color` instance by parsing a CSS color string. It supports the full CSS Color Module Level 5 syntax, including hex, `rgb`, `hsl`, `oklab`, `color-mix()`, named colors, and more. This is the most versatile method for working with CSS-compatible color inputs.
+
+**Example**:
+
+```js
+import { Color } from "saturon";
+import { configure } from "saturon/utils";
+
+// Create a color from a named color
+const color = Color.from("red");
+console.log(color.to("rgb")); // rgb(255 0 0)
+console.log(color.toArray()); // [255, 0, 0, 1]
+
+// Parse a complex CSS color
+const mixedColor = Color.from("color-mix(in hsl, red 30%, blue 70%)");
+console.log(mixedColor.to("hsl")); // hsl(276 100 50)
+
+// Parse context-dependant syntax
+const themeBased = Color.from("light-dark(skyblue, midnightblue)");
+console.log(themeBased.to("named-color")); // skyblue
+configure({ theme: "dark" });
+console.log(themeBased.to("named-color")); // midnightblue
+```
+
+## `Color.random()`
+
+The `random()` static method generates a random `Color` instance, perfect for generative design, testing, or creating color palettes. You can customize the output with options like `model`, `limits`, `bias`, and `deviation` to control the randomness.
+
+**Example**:
+
+```js
+import { Color } from "saturon";
+
+// Generate a random color
+const randomColor = Color.random();
+console.log(randomColor.to("rgb")); // e.g., rgb(123 45 89)
+
+// Generate a random color in OKLCH with constraints
+const constrainedColor = Color.random({
+    model: "oklch",
+    limits: { l: [0.4, 0.6], c: [0, 0.2], h: [0, 360] },
+});
+console.log(constrainedColor.to("rgb")); // e.g., rgb(89 92 155)
+```
+
+For full details on customization options, refer to [Color Class: random()](../api#random).

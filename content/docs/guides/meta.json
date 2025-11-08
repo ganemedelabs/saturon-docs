@@ -1,0 +1,13 @@
+{
+    "title": "Guides & Tutorials",
+    "icon": "Map",
+    "pages": [
+        "index",
+        "creating-colors",
+        "working-with-colors",
+        "color-mixing",
+        "accessibility-checks",
+        "gamut-mapping"
+    ],
+    "defaultOpen": true
+}

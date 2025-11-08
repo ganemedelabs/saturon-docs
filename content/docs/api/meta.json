@@ -1,0 +1,6 @@
+{
+    "title": "API",
+    "icon": "Code",
+    "pages": ["index", "utils", "converters", "math", "config", "types"],
+    "defaultOpen": true
+}

@@ -1,0 +1,28 @@
+---
+title: TypeScript Types
+description: Documentation of TypeScript types and interfaces in Saturon.
+---
+
+The `"saturon/types"` module exports various TypeScript types and interfaces used throughout the Saturon library. These types help ensure type safety and provide better developer experience when working with colors.
+
+## Exported Types
+
+| Name                  | Description                                                     |
+| --------------------- | --------------------------------------------------------------- |
+| `ColorType`           | Union of all `<color>` syntaxes                                 |
+| `ColorBase`           | Union of all `<color-base>` syntaxes                            |
+| `ColorModel`          | Union of all color-model names                                  |
+| `ColorSpace`          | Union of all color-space names                                  |
+| `NamedColor`          | Union of all `<named-color>` names                              |
+| `ColorConverter`      | `{ isValid, bridge, toBridge, parse, fromBridge?, format? }`    |
+| `ColorModelConverter` | Extends `ColorConverter` with `components`, `targetGamut`, etc. |
+| `ColorSpaceConverter` | Matrix-based converter for `<color()>`                          |
+| `ComponentDefinition` | `{ index, value, precision? }`                                  |
+| `FitMethod`           | `"none" \| "clip" \| "chroma-reduction" \| "css-gamut-map"`     |
+| `FitFunction`         | `(coords, model, opts) => number[]`                             |
+| `Plugin`              | `(ColorClass: typeof Color) => void`                            |
+| `Config`              | Global configuration shape                                      |
+| `FormattingOptions`   | Options for `to()` and `toString()`                             |
+| `GetOptions`          | Options for `toArray()` and `toObject()`                        |
+| `RandomOptions`       | Options for `random()`                                          |
+| `MixOptions`          | Options for `mix()`                                             |

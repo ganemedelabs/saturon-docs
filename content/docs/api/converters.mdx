@@ -1,0 +1,17 @@
+---
+title: Converters Definitions
+description: Documentation of color converter definitions in Saturon.
+---
+
+The `"saturon/converters"` module exports various color converter registries used throughout the Saturon library. These registries provide the necessary functions and data to convert between different color formats and models.
+
+## Exported Converter Registries
+
+| Name             | Type                                       | Description                                                       |
+| ---------------- | ------------------------------------------ | ----------------------------------------------------------------- |
+| `colorTypes`     | `Record<string, ColorConverter>`           | All `<color>` syntaxes (functional, base, named, etc.)            |
+| `colorBases`     | `Record<string, ColorConverter>`           | All `<color-base>` syntaxes (`coloe-mix()`, `hex-color`, etc)     |
+| `colorFunctions` | `Record<string, ColorConverter>`           | Functional `<color-function>` converters (e.g., `rgb()`, `hsl()`) |
+| `colorModels`    | `Record<string, ColorModelConverter>`      | Full model definitions with components, bridge, and gamut info    |
+| `colorSpaces`    | `Record<string, ColorModelConverter>`      | Matrix-based `<color()>` spaces (e.g., `display-p3`, `rec2020`)   |
+| `namedColors`    | `Record<string, [number, number, number]>` | Registered `<named-color>` → RGB mapping                          |

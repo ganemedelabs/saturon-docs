@@ -1,0 +1,27 @@
+---
+title: Config and Defaults
+description: Documentation of configuration options and default settings in Saturon.
+---
+
+The `"saturon/config"` module exports the global configuration object used throughout the Saturon library. This configuration allows users to customize default behaviors such as gamut mapping methods, theme preferences, and system color definitions.
+
+## Exported Config
+
+```ts
+export const config: Config;
+```
+
+### Shape (`Config` interface)
+
+```ts
+interface Config {
+    /** Global default fit method for gamut mapping */
+    defaults?: { fit?: FitMethod };
+
+    /** Theme / system-color overrides */
+    theme?: "light" | "dark";
+
+    /** Custom system colors (e.g., CanvasText) with their light-dark RGB values */
+    systemColors?: Record<string, number[][]>;
+}
+```

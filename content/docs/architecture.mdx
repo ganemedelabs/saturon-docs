@@ -1,0 +1,139 @@
+---
+title: Architecture
+icon: Layers
+description: In-depth explanation of Saturon's grammar-aware architecture for CSS color handling
+---
+
+Saturon is designed as a grammar-aware color engine that models the CSS Color Module Level 5 specification as JavaScript objects. This approach allows for runtime parsing, conversion, and extensibility of the entire `<color>` syntax. The architecture revolves around a unified `ColorConverter` type, with specialized subtypes for different color constructs. At runtime, all color types resolve to `ColorConverter` instances, enabling consistent handling while supporting model-specific manipulations.
+
+This document explains how Saturon represents the CSS `<color>` grammar (as defined in the [W3C CSS Color Module Level 5](https://www.w3.org/TR/css-color-5/#color-syntax)) through objects like `colorTypes`, `colorBases`, `colorFunctions`, `colorModels`, and `colorSpaces`. For deeper details on the CSS specification, refer to the W3C document.
+
+[![Saturon's Grammar-Aware Architecture](/images/architecture.jpg)](/images/architecture.jpg)
+
+## Overview of the CSS `<color>` Grammar
+
+The CSS Color Module Level 5 defines `<color>` as:
+
+```
+<color> = <color-base> | currentColor | <system-color> |
+          <contrast-color()> | <device-cmyk()> | <light-dark()>
+
+<color-base> = <hex-color> | <color-function> | <named-color> |
+               <color-mix()> | transparent
+
+<color-function> = <rgb()> | <rgba()> |
+                   <hsl()> | <hsla()> | <hwb()> |
+                   <lab()> | <lch()> | <oklab()> | <oklch()> |
+                   <color()>
+```
+
+Saturon treats each of these as JavaScript objects conforming to the `ColorConverter` type (or its subtypes). This enables:
+
+- **Validation**: Checking if a string matches a color type.
+- **Parsing**: Extracting coordinates from strings.
+- **Conversion**: Bridging between color spaces using intermediate "bridge" models.
+- **Formatting**: Generating CSS strings from coordinates.
+- **Extensibility**: Registering custom types (e.g., `jzazbz()`) that integrate seamlessly.
+
+All color representations are stored in runtime objects like `colorTypes` (for top-level `<color>` types) and resolved hierarchically.
+
+## Core Type: `ColorConverter`
+
+The foundational type in Saturon is `ColorConverter`, which defines how each color syntax is handled:
+
+```typescript
+export type ColorConverter = {
+    isValid: (str: string) => boolean;
+    bridge: string;
+    toBridge: (coords: number[]) => number[];
+    parse: (str: string) => number[];
+} & (
+    | {
+          fromBridge: (coords: number[]) => number[];
+          format: (coords: number[], options?: FormattingOptions) => string | undefined;
+      }
+    | { fromBridge?: undefined; format?: undefined }
+);
+```
+
+This type is used for most top-level `<color>` constructs (e.g., `currentColor`, `<system-color>`, `<contrast-color()>`, `<device-cmyk()>`, `<light-dark()>`). These are stored in the `colorTypes` object as `ColorConverter` instances. For example, the converter for `light-dark` defines a `parse` function that resolves to the color according to the current theme.
+
+At runtime, `colorTypes` is populated by spreading in `colorBases` (which includes `<color-base>` types).
+
+## Handling `<color-base>`
+
+`<color-base>` is not a single type but a union of several: `<hex-color>`, `<color-function>`, `<named-color>`, `<color-mix()>`, and `transparent`. Each is defined as a `ColorConverter` and stored in the `colorBases` object.
+
+- These are then spread into `colorTypes` like: `{ ...colorBases }`.
+- This allows `<color-base>` types to be treated uniformly alongside top-level `<color>` types.
+
+**Examples**:
+
+- `<named-color>`: Converter for colors like `red`, with `parse` mapping names to RGB coordinates.
+- `<hex-color>`: Validates and parses hex strings (e.g., `#ff5733`) to RGB.
+- `transparent`: Maps to `[0, 0, 0, 0]` in RGB.
+- `<color-mix()>`: Parses mixes with weights and hue modes, bridging to RGB.
+
+## Handling `<color-function>`
+
+`<color-function>` is also a union (`<rgb()>`, `<hsl()>`, etc.), treated as "color models" in Saturon. These are absolute colors with 3 components and optional alpha.
+
+They start as `ColorModelConverter`:
+
+```typescript
+export type ColorModelConverter = {
+    targetGamut?: string | null;
+    supportsLegacy?: boolean;
+    alphaVariant?: string;
+    components: Record<string, ComponentDefinition>;
+    bridge: string;
+    toBridge: (coords: number[]) => number[];
+    fromBridge: (coords: number[]) => number[];
+};
+```
+
+- These are stored in `colorModels`.
+- At runtime, each is converted to a `ColorConverter` and added to `colorFunctions`.
+- `colorFunctions` is then spread into `colorBases` like: `{ ...colorFunctions }`.
+
+This enables manipulation via component definitions (e.g., `components: { h: { index: 0, value: "angle" } }` for `hsl`), allowing channel-specific updates in workspaces.
+
+## Handling `<color()>`
+
+The `<color()>` function supports multiple color spaces (e.g., `srgb`, `display-p3`, `rec2020`, `xyz`). These are defined as `ColorSpaceConverter`:
+
+```typescript
+export type ColorSpaceConverter = {
+    targetGamut?: null;
+    components: string[];
+    toLinear?: (c: number) => number;
+    fromLinear?: (c: number) => number;
+    bridge: string;
+    toBridgeMatrix: number[][];
+    fromBridgeMatrix: number[][];
+};
+```
+
+- Stored in `colorSpaces`.
+- At runtime, each is converted to a `ColorModelConverter` and added to `colorModels` like: `{ ...colorSpaces }`.
+- This matrix-based approach ensures accurate conversions (e.g., `rec2020` to `xyz-d65`).
+
+## Runtime Resolution
+
+Saturon resolves all types hierarchically at runtime:
+
+1. `colorSpaces` (as `ColorSpaceConverter`) → Converted to `ColorModelConverter` → Added to `colorModels`.
+2. `colorModels` (as `ColorModelConverter`) → Converted to `ColorConverter` → Added to `colorFunctions`.
+3. `colorFunctions` → Spread into `colorBases` (`{ ...colorFunctions }`).
+4. `colorBases` → Spread into `colorTypes` (`{ ...colorBases }`).
+5. Top-level types (e.g., `currentColor`, `<light-dark()>`) are added directly to `colorTypes` as `ColorConverter`.
+
+This ensures:
+
+- All colors in `colorTypes` are `ColorConverter` instances for uniform parsing/conversion.
+- Access via `colorModels` retains component definitions for manipulation (e.g., in workspaces).
+- Extensibility: Plugins can register new converters that integrate into this hierarchy (e.g., custom `ictcp` as a `<color-function>`).
+
+This architecture makes Saturon future-proof, allowing seamless addition of new CSS features or custom syntaxes while maintaining spec compliance.
+
+For implementation details, explore the source code on [GitHub](https://github.com/ganemedelabs/saturon).
