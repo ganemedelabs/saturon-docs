@@ -4,28 +4,24 @@ Documentation site for [**Saturon**](https://www.npmjs.com/package/saturon) — 
 
 This repository contains the **source code and configuration** for the Saturon documentation website.
 
----
-
 ## 📚 About the Docs
 
 The site provides:
 
--   API references for all classes, methods, and utilities in **Saturon**
--   Interactive examples and playgrounds
--   Guides and tutorials on color manipulation and color space theory
--   Plugin authoring documentation
+- API references for all classes, methods, and utilities in **Saturon**
+- Interactive examples and playgrounds
+- Guides and tutorials on color manipulation and color space theory
+- Plugin authoring documentation
 
 The live docs are available at:
 👉 **[https://saturon.vercel.app](https://saturon.vercel.app)**
-
----
 
 ## 🏗️ Local Development
 
 ### Prerequisites
 
--   Node.js ≥ 18
--   npm or pnpm
+- Node.js ≥ 18
+- npm or pnpm
 
 ### Installation
 
@@ -49,8 +45,6 @@ Then open [http://localhost:3000](http://localhost:3000) to preview the docs.
 npm run build
 ```
 
----
-
 ## 🧠 Contributing
 
 We welcome contributions!
@@ -61,15 +55,11 @@ If you spot a typo, missing example, or unclear section:
 3. Commit your changes
 4. Submit a Pull Request
 
----
-
 ## 📜 License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
----
-
 ## 🔗 Related Repositories
 
--   **[Saturon (Core Library)](https://github.com/ganemedelabs/saturon)** – The main color manipulation engine
--   **[Saturon Docs](https://github.com/ganemedelabs/saturon-docs)** – This repository
+- **[Saturon (Core Library)](https://github.com/ganemedelabs/saturon)** – The main color manipulation engine
+- **[Saturon Docs](https://github.com/ganemedelabs/saturon-docs)** – This repository

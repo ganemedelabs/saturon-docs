@@ -4,7 +4,9 @@ import { RootProvider } from "fumadocs-ui/provider/next";
 import { Metadata } from "next";
 import { JetBrains_Mono } from "next/font/google";
 
-const jetBrainsMono = JetBrains_Mono();
+const jetBrainsMono = JetBrains_Mono({
+    subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
     title: {
