@@ -2,6 +2,11 @@
 @import "fumadocs-ui/css/vitepress.css";
 @import "fumadocs-ui/css/preset.css";
 
+html,
+body {
+    overflow-x: hidden;
+}
+
 body {
     font-family:
         system-ui,
