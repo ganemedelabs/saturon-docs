@@ -109,15 +109,15 @@ registerICtCp("rec2100-pq");
 registerICtCp("rec2100-hlg");
 ```
 
-<Callout title="Note">
+<Callout title="Requirements">
    The ICtCp color function requires a BT.2100 bridge:
     - For PQ: register ["rec2100-pq"](../register-color-spaces/rec2100-pq) first.
     - For HLG: register ["rec2100-hlg"](../register-color-spaces/rec2100-hlg) first.
 
     The main difference between PQ and HLG lies in how they handle luminance and viewing conditions:
-    - PQ (Perceptual Quantizer) is an *absolute* transfer function based on the human visual system, designed for mastering up to 10,000 cd/m² peak brightness. It provides more precise gradation in dark and bright regions, making it ideal for cinema, mastering, and controlled-viewing environments.
-    - HLG (Hybrid Log-Gamma) is a *relative* system optimized for broadcast and live production. It adapts to different displays without metadata and offers better compatibility with SDR systems, though with less precision in extreme highlights.
+    - PQ (Perceptual Quantizer) is an absolute transfer function based on the human visual system, designed for mastering up to 10,000 cd/m² peak brightness. It provides more precise gradation in dark and bright regions, making it ideal for cinema, mastering, and controlled-viewing environments.
+    - HLG (Hybrid Log-Gamma) is a relative system optimized for broadcast and live production. It adapts to different displays without metadata and offers better compatibility with SDR systems, though with less precision in extreme highlights.
 
-    According to *ITU-R BT.2390-8 (2020)*, neither is universally “better” — PQ is recommended for content mastering and distribution where display brightness is controlled, while HLG is recommended for live and broadcast workflows where backward compatibility and dynamic adaptation are priorities.
+    According to ITU-R BT.2390-8 (2020), neither is universally “better” — PQ is recommended for content mastering and distribution where display brightness is controlled, while HLG is recommended for live and broadcast workflows where backward compatibility and dynamic adaptation are priorities.
 
 </Callout>

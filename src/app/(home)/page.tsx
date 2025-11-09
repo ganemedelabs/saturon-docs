@@ -6,9 +6,9 @@ import Image from "next/image";
 
 function Background() {
     const fogs = [
-        { color: "#f472b6", size: "w-[800px] h-[800px]", position: "top-0 left-1/4", delay: "0s" },
-        { color: "#3b82f6", size: "w-[800px] h-[800px]", position: "bottom-0 right-1/3", delay: "3s" },
-        { color: "#a855f7", size: "w-[800px] h-[800px]", position: "top-1/2 right-0", delay: "6s" },
+        { color: "#f472b6", position: "top-0 left-1/4", delay: "0s" },
+        { color: "#3b82f6", position: "bottom-0 right-1/3", delay: "3s" },
+        { color: "#a855f7", position: "top-1/2 right-0", delay: "6s" },
     ];
 
     return (
@@ -17,17 +17,24 @@ function Background() {
                 @keyframes floatGlow {
                     0%, 100% {
                         transform: translateY(0px) scale(1);
-                        opacity: 0.3;
-                        filter: blur(200px);
+                        opacity: 0.25;
                     }
                     50% {
-                        transform: translateY(-40px) scale(1.1);
-                        opacity: 0.6;
-                        filter: blur(180px);
+                        transform: translateY(-20px) scale(1.05);
+                        opacity: 0.5;
                     }
                 }
+
                 .animate-floatGlow {
-                    animation: floatGlow 8s ease-in-out infinite;
+                    animation: floatGlow 12s ease-in-out infinite;
+                    will-change: transform, opacity;
+                }
+
+                @media (max-width: 768px) {
+                    .animate-floatGlow {
+                        animation: none;
+                        opacity: 0.3;
+                    }
                 }
             `}</style>
 
@@ -35,9 +42,10 @@ function Background() {
                 {fogs.map((fog, i) => (
                     <div
                         key={i}
-                        className={`absolute ${fog.size} ${fog.position} animate-floatGlow rounded-full opacity-30 blur-[200px]`}
+                        className={`absolute h-[1000px] w-[1000px] ${fog.position} animate-floatGlow rounded-full opacity-30`}
                         style={{
-                            backgroundColor: fog.color,
+                            background: `radial-gradient(circle, ${fog.color} 0%, transparent 70%)`,
+                            filter: "blur(80px)",
                             animationDelay: fog.delay,
                         }}
                     />
@@ -59,16 +67,25 @@ function Title() {
 
                 .animated-gradient {
                     background: linear-gradient(-45deg, #f472b6, #3b82f6, #a855f7, #22d3ee);
-                    background-size: 400% 400%;
-                    animation: gradientShift 8s ease infinite;
+                    background-size: 200% 200%;
+                    animation: gradientShift 12s ease infinite;
                     -webkit-background-clip: text;
                     background-clip: text;
                     color: transparent;
+                    will-change: background-position;
+                }
+
+                @media (max-width: 768px) {
+                    .animated-gradient {
+                        animation: none;
+                        background-size: 100% 100%;
+                        opacity: 0.15;
+                    }
                 }
             `}</style>
 
             <h1
-                className="animated-gradient absolute top-0 right-0 text-[15rem] uppercase opacity-10 select-none"
+                className="animated-gradient absolute top-0 right-0 text-[10rem] uppercase opacity-10 select-none md:text-[15rem]"
                 aria-hidden="true"
             >
                 Saturon
@@ -127,13 +144,20 @@ function FeatureCard({ img, title, description }: { img: string; title: string; 
             role="region"
             aria-labelledby={`${altText}-title`}
         >
-            <div className="mb-4 flex justify-center">
-                <div className="relative h-20 w-20 p-2 sm:h-24 sm:w-24">
-                    <Image src={img} alt={`${title} illustration`} fill sizes="96px" className="object-contain" />
+            <div className="mb-10 flex justify-center">
+                <div className="relative h-24 w-24 p-2 sm:h-32 sm:w-32">
+                    <Image
+                        src={img}
+                        alt={`${title} illustration`}
+                        fill
+                        sizes="96px"
+                        loading="lazy"
+                        className="object-contain"
+                    />
                 </div>
             </div>
 
-            <h3 id={`${altText}-title`} className="mb-2 text-lg font-semibold sm:text-xl">
+            <h3 id={`${altText}-title`} className="mb-4 text-lg font-semibold sm:text-xl">
                 {title}
             </h3>
             <p className="text-sm leading-relaxed sm:text-base">{description}</p>

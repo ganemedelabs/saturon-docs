@@ -309,7 +309,9 @@ export default function Playground() {
                                         <tbody>
                                             {results.map(({ type, value, isMatch }) => (
                                                 <tr key={type} className={isMatch ? "bg-fd-primary/10" : ""}>
-                                                    <th scope="row">{type}</th>
+                                                    <th className="break-words" scope="row">
+                                                        {type}
+                                                    </th>
                                                     <td className="break-all">{String(value)}</td>
                                                 </tr>
                                             ))}
@@ -337,7 +339,9 @@ export default function Playground() {
                                                 const arr = Array.isArray(value) ? value : [];
                                                 return (
                                                     <tr key={type} className={isMatch ? "bg-fd-primary/10" : ""}>
-                                                        <th scope="row">{type}</th>
+                                                        <th scope="row" className="break-words">
+                                                            {type}
+                                                        </th>
                                                         {Array.from({ length: 4 }).map((_, i) => (
                                                             <td key={i}>{arr[i] ?? "—"}</td>
                                                         ))}
@@ -360,7 +364,7 @@ export default function Playground() {
                                             }`}
                                             aria-label={`Color model ${type}`}
                                         >
-                                            <h3>{type}</h3>
+                                            <h3 className="mt-0">{type}</h3>
                                             {typeof value === "object" && !Array.isArray(value) ? (
                                                 <table className="w-full font-mono text-sm">
                                                     <thead>
@@ -372,7 +376,9 @@ export default function Playground() {
                                                     <tbody>
                                                         {Object.entries(value).map(([key, val]) => (
                                                             <tr key={key}>
-                                                                <th scope="row">{key}</th>
+                                                                <th className="break-words" scope="row">
+                                                                    {key}
+                                                                </th>
                                                                 <td>{String(val)}</td>
                                                             </tr>
                                                         ))}

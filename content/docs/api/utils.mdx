@@ -124,11 +124,6 @@ try {
 }
 ```
 
-<Callout title="Note">
-    Plugins are executed only once to avoid redundant modifications. For more plugin recipes, see [Register
-    Plugins](./recipes/register-plugins).
-</Callout>
-
 ## `registerColorType()`
 
 The `registerColorType()` function registers a new `<color>` converter (e.g., `device-cmyk`, `contrast-color`) under a specified name, enabling support for custom color syntaxes in `Color.from()` and `Color.to()`.
@@ -367,7 +362,7 @@ console.log(color.to("rgb")); // Converted via xyz-d65 color space
 console.log(color.to("rec2100-linear")); // color(rec2100-linear 0.7 0.3 0.1)
 ```
 
-<Callout title="Tip">
+<Callout type="success" title="Pro tip">
     You can use predefined matrices from `MATRICES` in `saturon/math` for common color spaces like Rec. 2020, Display
     P3, etc.
 </Callout>

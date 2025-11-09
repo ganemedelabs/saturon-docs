@@ -95,7 +95,7 @@ const adjusted = color.with({ l: 30 }); // hsl(120 100 30)
 const transformed = color.with({ s: (s) => s * 0.5 }); // hsl(120 50 50)
 ```
 
-<Callout title="Pro Tip">
+<Callout type="success" title="Pro tip">
 
 Always call `in()` before using `with()`. The `with()` method can throw an error if you try to update a component that doesn't exist in the color's current model. Using `in()` first ensures that you're working in the correct color space and gives you type-safe access to components — without forcing an unnecessary conversion if the color is already in that model.
 
@@ -132,7 +132,7 @@ console.log(mixed.toString()); // hsl(125 100 50)
 
 This is equivalent to the CSS `color-mix()` expression `color-mix(in hsl shorter hue, hsl(50 100% 50%), hsl(200 100% 50%) 50%)`, which can be parsed using `Color.from()` and yields the same result.
 
-<Callout title="Pro tip">
+<Callout type="success" title="Pro tip">
 
 To specify the color interpolation model for mixing, use `in()` before `mix()`.
 

@@ -77,7 +77,7 @@ const purple = Color.from("red").in("oklch").mix("blue");
 
 This guarantees the blend happens in OKLCH space, regardless of what model `"red"` or `"blue"` originally use.
 
-<Callout title="Note on Color Spaces">
+<Callout type="warn" title="Note on color spaces">
 According to the [W3C Color 5 specification](https://www.w3.org/TR/css-color-5/#interpolation-space), `rgb` is not a valid `<rectangular-color-space>` for `color-mix()`. However, Saturon allows mixing in any registered color model, including `"rgb"`.
 
 For example:

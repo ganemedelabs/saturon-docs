@@ -60,7 +60,7 @@ const colorWithAlpha = new Color("rgb", [255, 87, 51, 0.8]);
 console.log(colorWithAlpha.to("hex-color")); // #ff5733cc
 ```
 
-<Callout title="Note">
+<Callout type="warn" title="Note on accessing coords property">
 
     - The `coords` property can technically accept any JavaScript `number` values — including `NaN`, `Infinity`, or
     `-Infinity`. When accessed directly using `coords`, these values are returned exactly as provided. For normalized and CSS-safe
@@ -439,7 +439,7 @@ const rgbColor = Color.from("rgb(92 7 151)");
 console.log(rgbColor.toObject()); // { r: 92, g: 7, b: 151, alpha: 1 }
 ```
 
-<Callout title="Note">
+<Callout type="success" title="Note">
     `toObject()` internally relies on `toArray()` to retrieve component values. This means it inherits `toArray()`'s
     robust handling of special numeric cases, such as `NaN` and `Infinity`, ensuring consistent and reliable output.
 </Callout>
@@ -894,7 +894,7 @@ console.log(color.equals("#ff5733")); // true
 console.log(color.equals("rgb(255 88 51)", 1e-3)); // false
 ```
 
-<Callout type="warn" title="Not a perceptual comparison">
+<Callout type="error" title="Not a perceptual comparison">
 The `equals()` method checks numeric equality, not visual similarity. It compares raw channel values in the underlying color space (or `xyz-d65` if different), without accounting for how humans actually perceive color differences.
 
 Use this method for:

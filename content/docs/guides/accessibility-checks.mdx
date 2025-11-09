@@ -155,14 +155,3 @@ console.log(text.to("hex-color")); // #000000 (dark text on orange)
 | `contrast()`   | 1-21        | No          | Fast   |
 | `deltaEOK()`   | ΔE (~0-100) | Yes         | Fast   |
 | `deltaE2000()` | ΔE (~0-100) | Yes         | Slower |
-
-<Callout title="Pro Tip">
-Combine them to get the best of both worlds:
-
-```js
-if (text.contrast(bg) < 4.5) {
-    text = text.deltaEOK(white) < text.deltaEOK(black) ? white : black;
-}
-```
-
-</Callout>

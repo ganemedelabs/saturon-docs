@@ -72,7 +72,7 @@ input[type="text"]:focus-visible,
 input[type="number"]:focus-visible,
 input[type="checkbox"]:focus-visible,
 select:focus-visible {
-    outline: 2px solid var(--color-fd-ring);
+    outline: 2px solid var(--color-fd-primary);
 }
 
 input[type="text"]:hover,
@@ -115,4 +115,11 @@ input[type="checkbox"]:checked::after {
 
 input[type="checkbox"]:focus-visible {
     outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation: none !important;
+        transition: none !important;
+    }
 }

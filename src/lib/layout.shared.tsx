@@ -30,7 +30,7 @@ export function baseOptions(): BaseLayoutProps {
                         text: "Sponsor",
                         external: true,
                         url: "https://github.com/sponsors/yusefalmamari",
-                        description: "Support Saturon’s development and help sustain open-source innovation.",
+                        description: "Support Saturon's development and help sustain open-source innovation.",
                     },
                     {
                         text: "Stack Overflow",
