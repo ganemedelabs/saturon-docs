@@ -43,6 +43,12 @@ export const metadata: Metadata = {
         images: ["images/social-card.png"],
         creator: "@yusefalmamari",
     },
+    verification: {
+        google: "TYtGUYFKqN_7NhjemdjnkoQBR-IaVjJkPfZsPFapD4s",
+        other: {
+            "msvalidate.01": "5F41DDE468CA1184D54CA1C40983D75A",
+        },
+    },
 };
 
 export default function Layout({ children }: LayoutProps<"/">) {

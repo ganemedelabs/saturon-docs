@@ -29,13 +29,6 @@ function Background() {
                     animation: floatGlow 12s ease-in-out infinite;
                     will-change: transform, opacity;
                 }
-
-                @media (max-width: 768px) {
-                    .animate-floatGlow {
-                        animation: none;
-                        opacity: 0.3;
-                    }
-                }
             `}</style>
 
             <div className="absolute inset-0 overflow-visible" aria-hidden="true">
@@ -145,7 +138,7 @@ function FeatureCard({ img, title, description }: { img: string; title: string; 
             aria-labelledby={`${altText}-title`}
         >
             <div className="mb-10 flex justify-center">
-                <div className="relative h-24 w-24 p-2 sm:h-32 sm:w-32">
+                <div className="relative h-32 w-32 p-2">
                     <Image
                         src={img}
                         alt={`${title} illustration`}
@@ -183,7 +176,7 @@ function Features() {
             description: "OKLCh, Oklab, Display-P3, Rec.2020 and more.",
         },
         {
-            img: "/images/undraw_location-review.svg",
+            img: "/images/undraw_convert.svg",
             title: "Advanced Gamut Mapping",
             description: "Choose clip, chroma reduction, or CSS official.",
         },

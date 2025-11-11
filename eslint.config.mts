@@ -1,3 +1,5 @@
+// See https://eslint.org/docs/latest/use/configure/configuration-files for more about configuration files.
+
 import { dirname } from "path";
 import { fileURLToPath } from "url";
 import { FlatCompat } from "@eslint/eslintrc";

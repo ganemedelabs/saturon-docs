@@ -21,7 +21,8 @@ The live docs are available at:
 ### Prerequisites
 
 - Node.js ≥ 18
-- npm or pnpm
+- npm (comes with Node.js)
+- Docker (for containerized development, optional)
 
 ### Installation
 
@@ -35,6 +36,10 @@ npm install
 
 ```bash
 npm run dev
+
+# or if you prefer to run it inside a Docker container
+docker build -t saturon-docs .
+docker run -p 3000:3000 saturon-docs
 ```
 
 Then open [http://localhost:3000](http://localhost:3000) to preview the docs.
