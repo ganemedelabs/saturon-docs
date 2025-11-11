@@ -14,7 +14,7 @@ The site provides:
 - Plugin authoring documentation
 
 The live docs are available at:
-👉 **[https://saturon.vercel.app](https://saturon.vercel.app)**
+👉 **[https://saturon.js.org](https://saturon.js.org)**
 
 ## 🏗️ Local Development
 

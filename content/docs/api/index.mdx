@@ -288,7 +288,7 @@ to(type: OutputType | string, options?: FormattingOptions): string
 - **`type`**: A string specifying the target color format (e.g., `"rgb"`, `"hsl"`, `"hex-color"`, `"color-mix"`). Case-insensitive, but must match a type in `colorTypes`.
 - **`options`**: An optional object configuring the output format:
     - **`legacy`**: Boolean (default `false`). If `true`, uses legacy syntax for formats like `rgb()` or `hsl()` (e.g., `hsla(240, 100%, 50%, 0.5)`).
-    - **`fit`**: String (default `"clip"`). Specifies the gamut mapping method (`"clip"`, `"chroma-reduction"`, `"css-gamut-map"`) for out-of-gamut colors. Can be changed in the default configuration via `configure` (see [API: config](./config)).
+    - **`fit`**: String (default `"clip"`). Specifies the gamut mapping method (`"clip"`, `"chroma-reduction"`, `"css-gamut-map"`) for out-of-gamut colors. Can be changed in the default configuration via `configure` (see [API: config](./api/config)).
     - **`precision`**: Number, `null` or `undefined` (default `undefined`). Sets the decimal precision for numeric values in the output string. If `null`, uses full precision without rounding. If `undefined`, uses the type's default precision.
     - **`units`**: Boolean (default `false`). If `true`, includes the optional unit suffixes (e.g., `deg` for angles, `%` for percentages).
 - **Returns**: A string representing the color in the specified format.
@@ -382,7 +382,7 @@ toString(options: FormattingOptions = {}): string
 
 - **`options`**: An optional object configuring the output format:
     - **`legacy`**: Boolean (default `false`). If `true`, uses legacy syntax for formats like `rgb()` or `hsl()` (e.g., `hsla(240, 100%, 50%, 0.5)`).
-    - **`fit`**: String (default `"clip"`). Specifies the gamut mapping method (`"clip"`, `"chroma-reduction"`, `"css-gamut-map"`) for out-of-gamut colors. Can be changed in the default configuration via `configure` (see [API: config](./config)).
+    - **`fit`**: String (default `"clip"`). Specifies the gamut mapping method (`"clip"`, `"chroma-reduction"`, `"css-gamut-map"`) for out-of-gamut colors. Can be changed in the default configuration via `configure` (see [API: config](./api/config)).
     - **`precision`**: Number, `null` or `undefined` (default `undefined`). Sets the decimal precision for numeric values in the output string. If `null`, uses full precision without rounding. If `undefined`, uses the type's default precision.
     - **`units`**: Boolean (default `false`). If `true`, includes the optional unit suffixes (e.g., `deg` for angles, `%` for percentages).
 - **Returns**: A string representing the color in the instance's current model.
