@@ -10,7 +10,7 @@ Saturon provides two complementary tools for accessibility and color analysis:
 | `contrast()` | WCAG 2.1 contrast ratio (1-21)   | Text on background (AA/AAA compliance)              |
 | `deltaE*()`  | Perceptual color difference (ΔE) | Design consistency, brand colors, subtle variations |
 
-## WCAG Contrast Ratio - `Color.prototype.contrast()` [contrast]
+## WCAG Contrast Ratio - `Color.prototype.contrast()` [#contrast]
 
 The `contrast()` method computes the WCAG 2.1 contrast ratio between two colors using relative luminance in `xyz-d65`. A ratio of ≥4.5 is required for normal text (AA), and ≥7 for AAA.
 
@@ -52,7 +52,7 @@ function isAccessible(textColor: Color, bgColor: Color, level: "AA" | "AAA" = "A
 console.log(isAccessible(text, bg, "AAA")); // { ratio: 13.2, pass: true }
 ```
 
-## Perceptual Color Difference - `Color.prototype.deltaE*()` Methods [deltaE]
+## Perceptual Color Difference - `Color.prototype.deltaE*()` Methods [#deltaE]
 
 Use ΔE to measure how different two colors appear to the human eye. Saturon supports four formulas:
 

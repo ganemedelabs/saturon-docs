@@ -5,7 +5,7 @@ description: Discover how to manipulate and convert colors using in(), with(), a
 
 Once you have a `Color` instance, Saturon provides powerful methods to manipulate and convert it: `in()`, `to()`, `with()`, and `within()`. These methods allow you to switch color spaces, output colors as strings, update channel values, and ensure colors fit within specific gamuts. Below, we explore each method with examples.
 
-## `Color.prototype.in()`
+## `Color.prototype.in()` [#in]
 
 The `in()` method converts a `Color` instance to a specified color model (e.g., `hsl`, `oklab`, `lch`), returning a new instance in that model. It's useful for manipulating colors in a specific space where certain channels (e.g., hue in `hsl`) are more intuitive. If the instance is already in the requested model, `in()` safely returns the same instance without redundant conversion, ensuring efficiency.
 
@@ -33,7 +33,7 @@ console.log(mixed.to("hsl")); // hsl(38 155 32)
 
 Use `in()` when you need to work in a specific color space before updating channels (e.g., adjusting lightness in `hsl` or chroma in `oklch`, or mixing in `lab`). For details, refer to [Color Class: in()](../api#in).
 
-## `Color.prototype.to()` [to]
+## `Color.prototype.to()` [#to]
 
 The `to()` method converts the `Color` instance to a CSS color string in the specified format (e.g., `rgb`, `hsl`, `hex-color`, `named-color`). It's ideal for outputting colors in a format suitable for CSS, logging, or display. The `type` parameter corresponds to any supported output `<color>` syntax or model.
 
@@ -48,7 +48,7 @@ console.log(color.to("hwb")); // hwb(202 12 41)
 console.log(color.to("hex-color")); // #1f6a96
 ```
 
-## `Color.prototype.with()` [with]
+## `Color.prototype.with()` [#with]
 
 The `with()` method returns a new `Color` instance with updated channel values, keeping the current model. It supports flexible input formats, such as an object with channel names, an array of numbers, or an updater function for dynamic adjustments. The method is model-dependent, so the provided channels (e.g., `h` for hue) must exist in the current model, or an error is thrown. To avoid errors, use `in()` to switch to the desired model first.
 
@@ -76,7 +76,7 @@ const updated = rgbColor.in("hsl").with({ h: (h) => h + 30 });
 console.log(updated.to("rgb")); // rgb(255 190 51)
 ```
 
-## `Color.prototype.within()` [within]
+## `Color.prototype.within()` [#within]
 
 The `within()` method returns a new `Color` instance with its values constrained to the specified gamut (e.g., `srgb`, `display-p3`, `rec2020`), using a fit method like `clip` (default), `chroma-reduction`, or `css-gamut-map`. This ensures colors are displayable within the target gamut, which is critical for wide-gamut spaces like Display-P3 on sRGB displays.
 

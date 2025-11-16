@@ -19,7 +19,7 @@ Colors defined in wide-gamut spaces like Display P3 or Rec. 2020 may not be disp
 
 For example, `color(display-p3 1 0 0)` is pure red in P3, but out of sRGB range. It's showed as clipped or desaturated on normal screens.
 
-## Detect Out-of-Gamut Colors - `Color.prototype.inGamut()`
+## Detect Out-of-Gamut Colors - `Color.prototype.inGamut()` [#ingamut]
 
 Use `inGamut()` to check if a color is safely displayable in a target gamut.
 
@@ -48,7 +48,7 @@ console.log(p3Red.inGamut("display-p3")); // true
 - Design system validation
 - Automated testing (`expect(color.inGamut("srgb")).toBe(true)`)
 
-## Fit Colors into a Gamut - `Color.prototype.within()`
+## Fit Colors into a Gamut - `Color.prototype.within()` [#within]
 
 Use `within()` to return a new `Color` with values constrained to a target gamut, using a chosen fit method.
 
@@ -88,7 +88,7 @@ for (let i = 0; i <= steps; i++) {
 }
 ```
 
-## Safe Output with `fit` Option
+## Safe Output with `fit` Option [#fit]
 
 Use the `fit` option in `to()`, `toString()`, `toArray()`, or `toObject()` to automatically map out-of-gamut colors during formatting.
 

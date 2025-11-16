@@ -10,7 +10,7 @@ This document explains how Saturon represents the CSS `<color>` grammar (as defi
 
 [![Saturon's Grammar-Aware Architecture](/images/architecture.jpg)](/images/architecture.jpg)
 
-## Overview of the CSS `<color>` Grammar
+## Overview of the CSS `<color>` Grammar [#overview]
 
 The CSS Color Module Level 5 defines `<color>` as:
 
@@ -37,7 +37,7 @@ Saturon treats each of these as JavaScript objects conforming to the `ColorConve
 
 All color representations are stored in runtime objects like `colorTypes` (for top-level `<color>` types) and resolved hierarchically.
 
-## Core Type: `ColorConverter`
+## Core Type: `ColorConverter` [#core-type]
 
 The foundational type in Saturon is `ColorConverter`, which defines how each color syntax is handled:
 
@@ -60,7 +60,7 @@ This type is used for most top-level `<color>` constructs (e.g., `currentColor`,
 
 At runtime, `colorTypes` is populated by spreading in `colorBases` (which includes `<color-base>` types).
 
-## Handling `<color-base>`
+## Handling `<color-base>` [#color-base]
 
 `<color-base>` is not a single type but a union of several: `<hex-color>`, `<color-function>`, `<named-color>`, `<color-mix()>`, and `transparent`. Each is defined as a `ColorConverter` and stored in the `colorBases` object.
 
@@ -74,7 +74,7 @@ At runtime, `colorTypes` is populated by spreading in `colorBases` (which includ
 - `transparent`: Maps to `[0, 0, 0, 0]` in RGB.
 - `<color-mix()>`: Parses mixes with weights and hue modes, bridging to RGB.
 
-## Handling `<color-function>`
+## Handling `<color-function>` [#color-function]
 
 `<color-function>` is also a union (`<rgb()>`, `<hsl()>`, etc.), treated as "color models" in Saturon. These are absolute colors with 3 components and optional alpha.
 
@@ -98,7 +98,7 @@ export type ColorModelConverter = {
 
 This enables manipulation via component definitions (e.g., `components: { h: { index: 0, value: "angle" } }` for `hsl`), allowing channel-specific updates in workspaces.
 
-## Handling `<color()>`
+## Handling `<color()>` [#color-type]
 
 The `<color()>` function supports multiple color spaces (e.g., `srgb`, `display-p3`, `rec2020`, `xyz`). These are defined as `ColorSpaceConverter`:
 
