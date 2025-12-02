@@ -1,0 +1,6 @@
+{
+    "title": "Architecture",
+    "icon": "Layers",
+    "pages": ["grammar", "pathfinding", "gamut-mapping"],
+    "defaultOpen": true
+}

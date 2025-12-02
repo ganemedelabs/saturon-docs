@@ -1,0 +1,107 @@
+---
+title: Pathfinding
+description: How Saturon builds a graph of color models and finds the optimal conversion path using BFS.
+---
+
+Saturon supports many different color models, but not every model provides a direct converter to every other model. Instead, each model defines:
+
+- a bridge model (e.g. `rgb`, `xyz-d65`, `oklab`)
+- a `toBridge()` conversion
+- a `fromBridge()` conversion
+
+This creates a graph of possible color-space transitions. When you call:
+
+```ts
+color.in("hsl");
+```
+
+Saturon must figure out how to get from the color's current model to the target model, even if no direct converter exists. This is handled internally by path finding.
+
+## 1. The Conversion Graph [#graph]
+
+When `.in()` is called for the first time, Saturon builds an in-memory graph of all color spaces. For each registered color model:
+
+- the model is linked to its bridge
+- the bridge is linked back to the model
+
+Example graph edges:
+
+```
+oklch → oklab
+oklab → xyz-d50
+xyz-d50 → xyz-d65
+xyz-d65 → rgb
+rgb → hsl
+```
+
+This graph only needs to be computed once, so Saturon caches it:
+
+```ts
+cache.set("graph", graph);
+```
+
+The graph is rebuilt only when you register a new color model or syntax, which invalidates caches.
+
+## 2. Finding the Shortest Path [#bfs]
+
+The goal of path finding is to determine the shortest valid path between two color spaces. For example, Converting OKLCh to HSL results in this optimal path:
+
+```
+oklch → oklab → xyz-d50 → xyz-d65 → rgb → hsl
+```
+
+Saturon discovers this using a Breadth-First Search (BFS) over the graph:
+
+```ts
+const queue = [from];
+const parent = { [from]: null };
+
+// BFS through neighbors
+```
+
+Once BFS reaches the target model, Saturon reconstructs the path by walking the `parent` map backwards and reversing it. This is the most expensive part of conversion, not the math itself.
+
+## 3. Path Caching [#caching]
+
+Because BFS is the slowest step, Saturon caches the discovered path:
+
+```ts
+paths.set(`${from}-${to}`, path);
+```
+
+Future conversions between the same two models skip BFS entirely.
+
+## 4. Running the Conversion Along the Path [#walking-through]
+
+After the path is known, the engine walks through each step:
+
+```ts
+oklch → oklab → xyz-d50 → xyz-d65 → rgb → hsl
+```
+
+At each step:
+
+- if converting a model to its bridge, Saturon uses `toBridge()`
+- if converting a bridge to its model, Saturon uses `fromBridge()`
+- only one direction is needed per step
+
+Example logic simplified:
+
+```ts
+if (convA.toBridge && convA.bridge === next) {
+    value = convA.toBridge(value);
+} else if (convB.fromBridge && convB.bridge === current) {
+    value = convB.fromBridge(value);
+}
+```
+
+This continues until the target model is reached.
+
+## 5. Cache Invalidation [#cache-invalidation]
+
+Whenever a new color model is registered, Saturon invalidates both caches:
+
+- the graph cache
+- the paths cache
+
+This ensures that new converters are immediately available in future `.in()` calls, and all path calculations remain correct.

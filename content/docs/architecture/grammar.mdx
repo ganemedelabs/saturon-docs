@@ -1,7 +1,6 @@
 ---
-title: Architecture
-icon: Layers
-description: In-depth explanation of Saturon's grammar-aware architecture for CSS color handling
+title: Grammar-Aware Parsing
+description: How Saturon parses any valid CSS Color Level 5 input using its grammar-aware runtime.
 ---
 
 Saturon is designed as a grammar-aware color engine that models the CSS Color Module Level 5 specification as JavaScript objects. This approach allows for runtime parsing, conversion, and extensibility of the entire `<color>` syntax. The architecture revolves around a unified `ColorConverter` type, with specialized subtypes for different color constructs. At runtime, all color types resolve to `ColorConverter` instances, enabling consistent handling while supporting model-specific manipulations.

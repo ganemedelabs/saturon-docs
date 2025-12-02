@@ -9,36 +9,115 @@ import { FitMethod, FormattingOptions } from "saturon/types";
 import { useTheme } from "next-themes";
 import { configure } from "saturon/utils";
 
+const gamutRank = {
+    srgb: 1,
+    "display-p3": 2,
+    rec2020: 3,
+};
+
+async function detectHardwareGamut() {
+    const canvas = document.createElement("canvas");
+    const gl = canvas.getContext("webgl2", {
+        alpha: false,
+        premultipliedAlpha: false,
+    });
+    if (!gl) return "srgb";
+
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB32F, 1, 1, 0, gl.RGB, gl.FLOAT, null);
+
+    const fbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+
+    const toRGB = (c: number[]) => {
+        gl.clearColor(c[0], c[1], c[2], 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
+        const out = new Float32Array(4);
+        gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.FLOAT, out);
+        return out;
+    };
+
+    const p3 = toRGB([1.0, 0.0, 0.0]);
+    const rec = toRGB([0.0, 1.0, 0.0]);
+
+    const dist = (a: Float32Array, b: Float32Array) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+
+    const d = dist(p3, rec);
+
+    if (d < 1e-3) return "display-p3";
+    return "rec2020";
+}
+
+function detectBrowserGamut() {
+    if (matchMedia("(color-gamut: rec2020)").matches) return "rec2020";
+    if (matchMedia("(color-gamut: p3)").matches) return "display-p3";
+    return "srgb";
+}
+
+async function detectUsableGamut() {
+    const hardware = await detectHardwareGamut();
+    const browser = detectBrowserGamut();
+    const rank = Math.min(gamutRank[hardware], gamutRank[browser]);
+    return Object.keys(gamutRank).find((k) => gamutRank[k as keyof typeof gamutRank] === rank)!;
+}
+
+let cachedUsableGamut: Promise<string> | null = null;
+
+function detectUsableGamutOnce(): Promise<string> {
+    if (!cachedUsableGamut) cachedUsableGamut = detectUsableGamut();
+    return cachedUsableGamut;
+}
+
+function browserSupportsSpace(space: string) {
+    if (!("CSS" in window) || !CSS.supports) return false;
+    return CSS.supports("color", `color(${space} 1 0 0)`);
+}
+
+function supportsSRGBFunction() {
+    return CSS.supports("color", "color(srgb 1 0 0)");
+}
+
+function formatColorOutput(color: Color, space: string, options: FormattingOptions) {
+    if (browserSupportsSpace(space)) return color.to(space, options);
+    if (supportsSRGBFunction()) return color.to("srgb", options);
+
+    const [r, g, b] = color.in("rgb").toArray();
+    return `rgb(${r} ${g} ${b})`;
+}
+
 function ColorPreview({ input, options }: { input: string; options: FormattingOptions }) {
     const [displayColor, setDisplayColor] = useState<string | null>(null);
-    const [usedSpace, setUsedSpace] = useState<string>("");
+    const [usedSpace, setUsedSpace] = useState("");
 
     useEffect(() => {
-        try {
-            const color = Color.from(input);
-            let space = "";
-            let converted = "";
+        let cancelled = false;
 
-            if (CSS.supports("color(rec2020 1 0 0)")) {
-                space = "rec2020";
-                converted = color.to(space, options);
-            } else if (CSS.supports("color(display-p3 1 0 0)")) {
-                space = "display-p3";
-                converted = color.to(space, options);
-            } else if (CSS.supports("color(srgb 1 0 0)")) {
-                space = "srgb";
-                converted = color.to(space, options);
-            } else {
-                space = "rgb";
-                converted = color.to(space, options);
+        async function run() {
+            try {
+                const usable = await detectUsableGamutOnce();
+
+                const color = Color.from(input);
+                const converted = formatColorOutput(color, usable, options);
+
+                if (!cancelled) {
+                    setUsedSpace(usable);
+                    setDisplayColor(converted);
+                }
+            } catch {
+                if (!cancelled) {
+                    setUsedSpace("");
+                    setDisplayColor(null);
+                }
             }
-
-            setDisplayColor(converted);
-            setUsedSpace(space);
-        } catch {
-            setDisplayColor(null);
-            setUsedSpace("");
         }
+
+        run();
+        return () => {
+            cancelled = true;
+        };
     }, [input, options]);
 
     if (!displayColor) return null;
@@ -309,7 +388,7 @@ export default function Playground() {
                                         <tbody>
                                             {results.map(({ type, value, isMatch }) => (
                                                 <tr key={type} className={isMatch ? "bg-fd-primary/10" : ""}>
-                                                    <th className="break-words" scope="row">
+                                                    <th className="wrap-break-word" scope="row">
                                                         {type}
                                                     </th>
                                                     <td className="break-all">{String(value)}</td>
@@ -339,7 +418,7 @@ export default function Playground() {
                                                 const arr = Array.isArray(value) ? value : [];
                                                 return (
                                                     <tr key={type} className={isMatch ? "bg-fd-primary/10" : ""}>
-                                                        <th scope="row" className="break-words">
+                                                        <th scope="row" className="wrap-break-word">
                                                             {type}
                                                         </th>
                                                         {Array.from({ length: 4 }).map((_, i) => (
@@ -376,7 +455,7 @@ export default function Playground() {
                                                     <tbody>
                                                         {Object.entries(value).map(([key, val]) => (
                                                             <tr key={key}>
-                                                                <th className="break-words" scope="row">
+                                                                <th className="wrap-break-word" scope="row">
                                                                     {key}
                                                                 </th>
                                                                 <td>{String(val)}</td>

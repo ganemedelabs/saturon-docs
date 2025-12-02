@@ -1,0 +1,106 @@
+---
+title: Gamut Mapping
+description: How Saturon detects out-of-gamut colors and applies gamut-mapping using different methods.
+---
+
+Color conversions sometimes produce values that fall outside the supported range of a destination color space (its gamut). Saturon provides a flexible, spec-aligned system for bringing those colors back into gamut ("fitting") while remaining predictable for beginners and powerful for advanced users. Saturon currently ships with three fitting strategies:
+
+- `clip` - simple clamping to component limits
+- `chroma-reduction` - perceptual OKLCh chroma reduction
+- `css-gamut-map` - the full CSS Level 4 gamut-mapping algorithm
+- `none` - disable gamut correction entirely
+
+You choose a method through:
+
+```ts
+Color.from("oklch(0.7 0.3 210)").to("srgb", { fit: "css-gamut-map" });
+```
+
+Or configure global defaults:
+
+```ts
+configure({ defaults: { fit: "css-gamut-map" } });
+```
+
+## 1. How Saturon Decides If a Color Is Out of Gamut [#how]
+
+All color spaces in `colorSpaces` define component ranging from 0 to 1, as per CSS Color 4. That means Saturon can quickly test:
+
+- **inGamut spaces** (e.g., `srgb`, `display-p3`, `rec2020`) → have limits, so Saturon can check if a component exceeds them.
+- **unbounded or analytical spaces** (e.g., `xyz-d65`, `xyz-d50`) → no fixed limits, so Saturon treats them as always in-gamut.
+
+This distinction is crucial:
+
+```ts
+color.inGamut("xyz-d65"); // always true — XYZ has no gamut limits
+color.inGamut("srgb"); // true or false depending on numeric limits
+```
+
+Because of this:
+
+- Spaces with `targetGamut: null` (OKLab/OKLCh/Lab/LCh/XYZ) cannot be gamut-mapped except via `clip` method.
+- Spaces with a real target gamut (sRGB, P3, Rec2020, etc.) can be mapped using any method.
+
+## 2. The `fit()` Function: Saturon's Gamut-Mapping Utility [#fit]
+
+All fitting logic goes through the `fit()` function in `saturon/utils`. This is where the library:
+
+1. Determines which gamut-mapping method to use
+2. Applies that method
+3. Applies appropriate per-component rounding
+4. Returns corrected coordinates
+
+Each fitting method is defined in `fitMethods` in `saturon/math`.
+
+## 3. Available Gamut Mapping Methods [#methods]
+
+### A. `clip` — Simple Direct Clamping [#clip]
+
+This is the fastest method and matches CSS Color 4 Section 13.1.1.
+
+- Limit numeric components to their allowed range
+- Wrap angles
+- Does not attempt perceptual matching
+- Works even on unbounded spaces (OKLab/OKLCh/etc.), because it clamps based on component definitions instead of analyzing gamut geometry
+
+This is Saturon's current default, matching all browsers as of today.
+
+### B. `chroma-reduction` — OKLCh Perceptual Reduction [#chroma-reduction]
+
+This algorithm:
+
+1. Converts to OKLCh
+2. Gradually reduces chroma using a binary search until the color falls into the target gamut
+3. Ensures the perceptual difference (ΔEOK) is under a small threshold
+4. Converts back to the destination model
+
+This produces smoother, more visually consistent results for high-chroma colors, matching CSS Color 4 Section 13.1.5.
+
+### C. `css-gamut-map` — Full CSS Color 4 Mapping [#css-gamut-map]
+
+This implements the official CSS Level 4 mapping algorithm (Section 13.2), used when converting into an RGB colorspace.
+
+Key behaviors:
+
+- Extreme L values immediately map to pure black/white
+- Uses a perceptually-uniform space (OKLCh)
+- Performs a chroma search to find the closest in-gamut color
+- Uses ΔEOK (~just noticeable difference) thresholds
+- Produces browser-consistent results once browsers adopt it
+
+Saturon will eventually switch to this as its default method once browsers do so.
+
+### D. `none` — Disable Gamut Fitting Entirely [#none]
+
+This returns the raw converted coordinates, even if invalid. Useful for researchers or debugging, but not recommended for production.
+
+## 4. Why Some Spaces Cannot Be Gamut-Mapped [#why]
+
+Spaces like OKLab, OKLCh, Lab, LCh, XYZ have no inherent gamut. They are mathematical spaces with infinite possible values. Thus:
+
+```ts
+color.in("oklch").within("srgb", "clip"); // OK — clipping uses component limits
+color.in("oklch").within("srgb", "css-gamut-map"); // No mapping — algorithm requires a real gamut
+```
+
+This behavior mirrors CSS and ensures there is no false guarantee of "gamut correctness" where none exists.
