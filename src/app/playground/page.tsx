@@ -32,9 +32,9 @@ function supportsSRGBFunction() {
 }
 
 function formatColorOutput(color: Color, space: string, options: FormattingOptions) {
-    if (browserSupportsSpace(space)) return color.to(space, options);
-    if (supportsSRGBFunction()) return color.to("srgb", options);
-    return color.to("rgb");
+    if (browserSupportsSpace(space)) return color.fit(options).to(space, options);
+    if (supportsSRGBFunction()) return color.fit(options).to("srgb", options);
+    return color.fit(options).to("rgb", options);
 }
 
 function ColorPreview({ input, options }: { input: string; options: FormattingOptions }) {
@@ -142,11 +142,11 @@ export default function Playground() {
                     const conversion = color.in(type);
 
                     if (outputType === "object") {
-                        value = conversion.toObject(baseOptions);
+                        value = conversion.fit(baseOptions).toObject(baseOptions);
                     } else if (outputType === "array") {
-                        value = conversion.toArray(baseOptions);
+                        value = conversion.fit(baseOptions).toArray(baseOptions);
                     } else {
-                        value = conversion.toString({
+                        value = conversion.fit(baseOptions).toString({
                             ...baseOptions,
                             legacy,
                             units,

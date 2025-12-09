@@ -483,7 +483,7 @@ console.log(rgbColor.toArray()); // [55, 187, 51, 1]
 
 ## Instance `Color.with()` [#with]
 
-The `with()` method creates a new `Color` instance with updated or replaced component values in the current model, offering flexible ways to modify colors. It supports direct component updates, functional updates for dynamic calculations, bulk updates via functions, and direct or functional coordinate array replacements. This method is ideal for adjusting specific components (e.g., changing hue in `hsl`) or applying transformations (e.g., desaturating a color) while preserving immutability.
+The `with()` method creates a new `Color` instance with updated or replaced component values in the current model. It supports direct component updates, functional updates, bulk updates via functions, and direct or functional coordinate array replacements. It also provides optional normalization behavior for handling inappropriate numeric input values while keeping all valid real numbers unchanged.
 
 ### Syntax
 
@@ -494,60 +494,66 @@ with(
     | ((components: { [K in Component<M> | "alpha"]: number }) =>
         | Partial<{ [K in Component<M> | "alpha"]: number }>
         | (number | undefined)[])
-    | (number | undefined)[]
+    | (number | undefined)[],
+  normalized?: boolean
 ): Color<M>
 ```
 
-- **`values`**: One of the following:
-    - **Object**: A partial object with component names (e.g., `r`, `g`, `b` for `rgb`) or `alpha`, mapped to numbers or updater functions (e.g., `{ r: 128 }`, `{ r: (r) => r * 2 }`).
-    - **Function**: A function receiving an object of current component values and returning either a partial object of updated values or an array of new coordinates (e.g., `({ r, g, b }) => ({ r: r * 0.5 })`, `({ r, g, b }) => [r, g, b, 1]`).
-    - **Array**: An array of 3 or 4 numbers (or `undefined`) to replace the coordinates directly (e.g., `[255, 87, 51, 1]`).
-- **Returns**: A new `Color` instance in the same model with updated coordinates.
-- **Throws**: If the current model lacks defined components in `colorModels`.
+- **`values`**:
+    - **Object**: Partial component mapping (numbers or updater functions).
+    - **Function**: Receives current component values; returns a partial object or coordinate array.
+    - **Array**: Replaces component coordinates directly.
+- **`normalized`** (default `true`):
+  Controls the handling of inappropriate numeric values:
+    - `NaN` → becomes `0`
+    - `Infinity` → becomes component `max`
+    - `-Infinity` → becomes component `min`
+      When `normalized` is `false`, these inappropriate values are preserved.
+- **Returns**: A new `Color` instance with updated coordinates.
+- **Throws**: If the current model has no component definitions.
 
 ### Behavior
 
-- Retrieves the `components` definition from `colorModels[model]` and adds an `alpha` component (`index: 3`, `value: [0, 1]`, `precision: 3`).
-- Gets the current coordinates using `toArray()` for reference.
-- Handles the `values` input based on its type:
-    - **Function**: Calls the function with an object of current component values and processes the result as either a partial object or an array.
-    - **Array**: Normalizes each coordinate using model-specific ranges (e.g., `[0, 360]` for angles, `[0, 100]` for percentages, `[min, max]` for custom ranges). Handles edge cases: `NaN` → `0`, `Infinity` → `max`, `-Infinity` → `min`, `undefined` → current value. Preserves the current alpha if not specified.
-    - **Object**: Updates specified components, applying numbers directly or evaluating updater functions against current values. Normalizes values using model-specific ranges and handles edge cases similarly.
-- Creates a new `Color` instance with the updated coordinates, preserving the current alpha if not updated.
+- Component definitions are taken from `colorModels[model]`, with `alpha` added as a fourth component.
+- Current coordinates are read before applying updates.
+- If `values` is a function, it is called with current component values and its result is processed like object or array input.
+- If `values` is an array, each index replaces the corresponding coordinate, using the normalization rules only for inappropriate values; valid numbers remain unchanged.
+- If `values` is an object, each specified component is updated directly or via an updater function, again normalizing only inappropriate numbers.
+- Alpha is preserved unless explicitly replaced, and a new `Color` instance is returned with the updated components.
 
 ### Example
 
 ```js
 import { Color } from "saturon";
 
-// Direct component update (object)
-const rgbColor = Color.from("rgb(255 87 51)");
-const updatedRgb = rgbColor.with({ g: 128 });
-console.log(updatedRgb.to("rgb")); // rgb(255 128 51)
+// Direct component update
+const rgb = Color.from("rgb(255 87 51)");
+const updated = rgb.with({ g: 128 });
+console.log(updated.toString()); // rgb(255 128 51)
 
 // Functional component update
-const brighterRgb = rgbColor.with({ r: (r) => r * 0.8 });
-console.log(brighterRgb.toString()); // rgb(204 87 51)
+const dimmed = rgb.with({ r: (r) => r * 0.8 });
+console.log(dimmed.toString()); // rgb(204 87 51)
 
-// Functional bulk update (object)
-const hslColor = Color.from("hsl(50 100% 30%)");
-const adjustedHsl = hslColor.with(({ h, s, l }) => ({
+// Functional bulk update
+const hsl = Color.from("hsl(50 100% 30%)");
+const adjusted = hsl.with(({ h, s, l }) => ({
     h: h + 10,
     s: s * (l / 100),
 }));
-console.log(adjustedHsl.toString()); // hsl(60 30 30)
+console.log(adjusted.toString()); // hsl(60 30 30)
 
 // Direct coordinate array replacement
-const newRgb = rgbColor.with([, 150, 200]);
+const newRgb = rgb.with([, 150, 200]);
 console.log(newRgb.toString()); // rgb(255 150 200)
 
-// Functional coordinate update (array)
-const mutedRgb = rgbColor.with(({ r, g, b }) => [r * 0.5, g * 0.5, b * 0.5, 1]);
-console.log(mutedRgb.toString()); // rgb(128 44 26)
+// Functional coordinate array update
+const muted = rgb.with(({ r, g, b }) => [r * 0.5, g * 0.5, b * 0.5, 1]);
+console.log(muted.toString()); // rgb(128 44 26)
 
-// Handle edge cases
-const edgeCase = rgbColor.with([NaN, Infinity, -Infinity]);
-console.log(edgeCase.toString()); // rgb(0 255 0)
+// Disabling normalization preserves inappropriate values
+const edge = rgb.with({ r: (r) => isNaN(r) ? 0 + 10 ? r + 10 }, false);
+console.log(edge.toString()); // rgb(10 200 0)
 ```
 
 ## Instance `Color.mix()` [#mix]
@@ -580,7 +586,7 @@ mix(other: Color<ColorModel> | string, options: MixOptions = {}): Color<M>
 - Retrieves the `components` definition from `colorModels[model]` and adds an `alpha` component (`index: 3`, `value: [0, 1]`, `precision: 3`).
 - Gets the current coordinates using `toArray()` and converts the `other` color to the current model using `in()` (parsing strings via `Color.from()`).
 - Clamps `amount` to `[0, 1]` and applies the easing function (from `EASINGS` or custom) to compute the interpolation factor `tt`, adjusted by `gamma` via `Math.pow(ease(t), 1 / gamma)`.
-- Handles hue interpolation for components marked as `angle` (e.g., `h` in `hsl`) using the specified `hue` method (`shorter`, `longer`, `increasing`, `decreasing`).
+- Handles hue interpolation for components marked as `hue` (e.g., `h` in `hsl`) using the specified `hue` method (`shorter`, `longer`, `increasing`, `decreasing`).
 - For non-hue components, performs linear interpolation: `start + (end - start) * tt`.
 - If either color has an alpha less than 1, applies premultiplied alpha blending:
     - Multiplies each component by its respective alpha before interpolation.
@@ -619,6 +625,42 @@ console.log(mixedAlpha.toString()); // rgb(106 149 0 / 0.6)
 const otherColor = Color.from("rgb(0 255 0)");
 const rgbMix = transparentColor.mix(otherColor, { amount: 0.3 });
 console.log(rgbMix.toString()); // rgb(137 118 0 / 0.65)
+```
+
+## Instance `Color.fit()` [#fit]
+
+The `fit()` method fits the current `Color` instance into its own model's gamut, returning a new `Color` with component values adjusted according to the chosen fitting method. It ensures that all component values fall within the valid range of the current model (e.g., clamping overly wide-gamut values in `rgb`, restricting chroma in `oklch`, etc.). This is useful when sanitizing colors after transformations or enforcing compatibility with target rendering environments.
+
+### Syntax
+
+```ts
+fit(options?: ComponentOptions): Color<M>
+```
+
+- **`options`**: Optional configuration object:
+    - **`fit`**: The gamut-fitting method to apply. Defaults to `config.defaults.fit`. Supported values include:
+        - `"clip"`: Clamps component values to their valid ranges.
+        - `"chroma-reduction"`: Reduces chroma while maintaining hue and lightness structure.
+        - `"css-gamut-map"`: Uses the CSS Color Module Level 4 gamut-mapping algorithm.
+    - **`precision`**: Optional numeric precision for rounding component values during fitting.
+- **Returns**: A new `Color` instance in the current model with fitted component values.
+- **Throws**: Never throws unless downstream conversion rules throw.
+
+### Behavior
+
+- Extracts the fitting method and precision from the `options` object, using defaults when omitted.
+- Calls `toArray({ fit: method, precision })` to obtain fitted component values in the current model.
+- Returns a new `Color` instance constructed with the fitted coordinates, preserving the same model.
+
+### Example
+
+```js
+import { Color } from "saturon";
+
+// Fit an out-of-range color to the RGB's target gamut, which is sRGB
+const c = new Color("rgb", [300, -20, 500]);
+const fitted = c.fit({ fit: "clip" });
+console.log(fitted.to("rgb")); // rgb(255 0 255)
 ```
 
 ## Instance `Color.within()` [#within]
@@ -874,7 +916,7 @@ equals(other: Color<ColorModel> | string, epsilon?: number): boolean
 ```
 
 - **`other`**: A `Color` instance or CSS color string to compare.
-- **`epsilon`**: Optional tolerance (default `1e-5`). Allows small floating-point differences.
+- **`epsilon`**: Optional tolerance (default to the value of `EPSILON` in `"saturon/math"` which is `1e-5`). Allows small floating-point differences.
 - **Returns**: `true` if numerically equal within tolerance, `false` otherwise.
 
 ### Behavior
@@ -923,7 +965,7 @@ inGamut(gamut: ColorSpace | string, epsilon?: number): boolean
 ```
 
 - **`gamut`**: Target color space name (e.g., `"srgb"`, `"display-p3"`).
-- **`epsilon`**: Optional tolerance (default `1e-5`) for boundary checks.
+- **`epsilon`**: Optional tolerance (defaults to the value of `EPSILON` in `"saturon/math"` which is `1e-5`) for boundary checks.
 - **Returns**: `true` if all components are within valid ranges, `false` otherwise.
 - **Throws**: If `gamut` is not registered in `colorSpaces`.
 

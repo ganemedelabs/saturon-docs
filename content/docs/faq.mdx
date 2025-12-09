@@ -170,6 +170,29 @@ console.log(srgbColor.to("rgb")); // rgb(255 0 0)
 
 See [Color Class: within()](./api#within).
 
+## How do I ensure a color fits within its own gamut before converting?
+
+Use the `fit()` method to adjust a color's components so they fall within the valid range of its current model before converting it to another space. This is useful for sanitizing colors that may have out-of-gamut values.
+
+**Example**:
+
+```js
+import { Color } from "saturon";
+
+const oklab = new Color("oklab", [0.5, -0.5, 0.2]);
+
+// Not recommended: fits after converting to P3
+const notRecommended = oklab.to("display-p3", { fit: "clip" });
+
+// Recommended: fit Oklab first
+const recommended = oklab.fit({ fit: "clip" }).to("display-p3");
+
+console.log(notRecommended); // color(display-p3 0 0.60774 0)
+console.log(recommended); // color(display-p3 0 0.57416 0)
+```
+
+See [Color Class: fit()](./api#fit).
+
 ## How do I calculate the luminance of a color?
 
 According to the WCAG 2.1 definition, use the Y component from the color's XYZ representation.
