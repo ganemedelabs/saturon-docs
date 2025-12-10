@@ -1,6 +1,6 @@
 {
     "name": "saturon-docs",
-    "version": "0.2.9",
+    "version": "0.2.10",
     "private": true,
     "scripts": {
         "build": "next build",
@@ -27,7 +27,7 @@
         "@types/react-dom": "^19.2.0",
         "eslint": "^9",
         "eslint-config-next": "15.5.4",
-        "next": "^15.5.6",
+        "next": "^15.5.7",
         "postcss": "^8.5.6",
         "prettier": "^3.6.2",
         "prettier-plugin-tailwindcss": "^0.7.1",
